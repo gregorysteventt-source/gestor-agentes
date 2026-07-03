@@ -177,6 +177,13 @@
             max-width: 560px;
         }
 
+        .novedades-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 380px));
+            justify-content: start;
+            gap: 0.5rem;
+        }
+
 
         .modal-confirmacion-backdrop {
             position: fixed;
@@ -681,14 +688,18 @@
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Agente que solicita:</label>
                         <select id="novedad_agente" class="w-full border rounded p-2 text-sm bg-white" required></select>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 mb-1">Fecha Pedido:</label>
                             <input type="date" id="novedad_fecha_pedido" class="w-full border rounded p-2 text-sm bg-white">
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">Fecha Solicitada:</label>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Desde:</label>
                             <input type="date" id="novedad_fecha_solicitada" class="w-full border rounded p-2 text-sm bg-white" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Hasta:</label>
+                            <input type="date" id="novedad_fecha_hasta" class="w-full border rounded p-2 text-sm bg-white">
                         </div>
                     </div>
                     <div>
@@ -755,7 +766,7 @@
 
                     <div id="resumenNovedades" class="text-[11px] text-gray-500"></div>
 
-                    <div class="max-h-[640px] overflow-y-auto grid grid-cols-1 xl:grid-cols-2 gap-2 pr-1" id="listaNovedades">
+                    <div class="max-h-[640px] overflow-y-auto novedades-grid pr-1" id="listaNovedades">
                         <div class="novedad-card text-center text-gray-400">Cargando novedades...</div>
                     </div>
                 </div>
@@ -1170,6 +1181,7 @@
             'Identificaciones': ['Cesar Arzamendia', 'Daniel Cuevas']
         };
         const AGENTES_CLAVE_REGISTRO_DIARIO = ['Francis Amarilla'];
+        const MARCA_RANGO_NOVEDAD = '[RANGO_HASTA:';
         const MARCA_AUTO_PLANIFICADOR_IDENTIFICACIONES = '[AUTO_PLANIFICADOR_IDENTIFICACIONES]';
         const MARCA_AUTO_COBERTURA_NORMAL_DIARIA = '[AUTO_COBERTURA_NORMAL_DIARIA]';
 
@@ -2582,7 +2594,8 @@
             return (novedadesEnMemoria || []).filter(novedad =>
                 novedad &&
                 novedad.agente_id == agenteId &&
-                novedad.fecha_solicitada === fecha &&
+                novedad.fecha_solicitada <= fecha &&
+                obtenerFechaHastaNovedad(novedad) >= fecha &&
                 (novedad.estado_cobertura || '') !== 'CANCELADO'
             );
         }
@@ -3399,13 +3412,46 @@
             return obtenerTipoAusenciaDesdeNovedad(novedad.motivo_pedido) !== null;
         }
 
+        function obtenerFechaHastaNovedad(novedad) {
+            const notas = novedad?.notas_relevo || '';
+            const match = notas.match(/\[RANGO_HASTA:(\d{4}-\d{2}-\d{2})\]/);
+            return match ? match[1] : novedad?.fecha_solicitada;
+        }
+
+        function formatearRangoNovedad(novedad) {
+            const desde = novedad?.fecha_solicitada;
+            const hasta = obtenerFechaHastaNovedad(novedad);
+            if(!desde) return '-';
+            if(!hasta || hasta === desde) return formatearFechaSimple(desde);
+            return `${formatearFechaSimple(desde)} al ${formatearFechaSimple(hasta)}`;
+        }
+
+        function limpiarNotasRelevoNovedad(notas) {
+            return (notas || '')
+                .replace(/\s*\|\s*\[RANGO_HASTA:\d{4}-\d{2}-\d{2}\]/g, '')
+                .replace(/\[RANGO_HASTA:\d{4}-\d{2}-\d{2}\]\s*\|\s*/g, '')
+                .replace(/\[RANGO_HASTA:\d{4}-\d{2}-\d{2}\]/g, '')
+                .trim();
+        }
+
+        function construirNotasRelevoConRango(notas, fechaDesde, fechaHasta) {
+            const partes = [];
+            const notaLimpia = limpiarNotasRelevoNovedad(notas);
+            if(notaLimpia) partes.push(notaLimpia);
+            if(fechaHasta && fechaDesde && fechaHasta > fechaDesde) {
+                partes.push(`${MARCA_RANGO_NOVEDAD}${fechaHasta}]`);
+            }
+            return partes.join(' | ') || null;
+        }
+
         function novedadYaFueConvertidaEnAusencia(novedad) {
             if(!novedad || !novedad.fecha_solicitada || !novedad.agente_id) return false;
+            const fechaHasta = obtenerFechaHastaNovedad(novedad);
 
             return ausenciasEnMemoria.some(aus =>
                 aus.agente_id == novedad.agente_id &&
                 novedad.fecha_solicitada >= aus.fecha_inicio &&
-                novedad.fecha_solicitada <= aus.fecha_fin
+                fechaHasta <= aus.fecha_fin
             );
         }
 
@@ -3418,8 +3464,9 @@
                 partes.push(`Horario / tiempo afectado: ${novedad.observacion_tiempo}`);
             }
 
-            if(novedad.notas_relevo) {
-                partes.push(`Notas de cobertura: ${novedad.notas_relevo}`);
+            const notasLimpias = limpiarNotasRelevoNovedad(novedad.notas_relevo);
+            if(notasLimpias) {
+                partes.push(`Notas de cobertura: ${notasLimpias}`);
             }
 
             return partes.join(' | ');
@@ -3487,7 +3534,8 @@
 
                 const resumenMotivo = nov.motivo_pedido || '-';
                 const resumenTiempo = nov.observacion_tiempo ? ` · ${nov.observacion_tiempo}` : '';
-                const notas = nov.notas_relevo || 'Sin notas registradas.';
+                const notas = limpiarNotasRelevoNovedad(nov.notas_relevo) || 'Sin notas registradas.';
+                const rangoPedido = formatearRangoNovedad(nov);
 
                 const card = document.createElement('div');
                 card.className = 'novedad-card';
@@ -3499,7 +3547,7 @@
                                 <div class="mt-1 text-sm font-semibold text-gray-800 line-clamp-2">${escaparHTML(resumenMotivo)}</div>
                                 ${resumenTiempo ? `<div class="text-xs text-gray-500 line-clamp-1">${escaparHTML(resumenTiempo.replace(/^ · /, ''))}</div>` : ''}
                             </div>
-                            <span class="novedad-chip bg-sky-50 text-sky-700 shrink-0">${formatearFechaSimple(nov.fecha_solicitada)}</span>
+                            <span class="novedad-chip bg-sky-50 text-sky-700 shrink-0">${rangoPedido}</span>
                         </div>
                         <details class="mt-2 bg-gray-50 border rounded-lg px-2.5 py-1.5">
                             <summary class="cursor-pointer select-none text-[11px] font-bold text-gray-600">Ver detalle</summary>
@@ -3594,10 +3642,15 @@
                 const agente_id = document.getElementById('novedad_agente').value;
                 const fecha_pedido = document.getElementById('novedad_fecha_pedido').value || obtenerFechaActualISO();
                 const fecha_solicitada = document.getElementById('novedad_fecha_solicitada').value;
+                const fecha_hasta = document.getElementById('novedad_fecha_hasta').value || fecha_solicitada;
                 const motivo_pedido = construirMotivoNovedad();
                 const observacion_tiempo = document.getElementById('novedad_observacion_tiempo').value.trim() || null;
                 const estado_cobertura = document.getElementById('novedad_estado').value;
-                const notas_relevo = document.getElementById('novedad_notas_relevo').value.trim() || null;
+                const notas_relevo = construirNotasRelevoConRango(
+                    document.getElementById('novedad_notas_relevo').value.trim(),
+                    fecha_solicitada,
+                    fecha_hasta
+                );
 
                 if(!agente_id) {
                     mostrarToast("Seleccioná el agente que realiza el pedido.", "warning");
@@ -3605,7 +3658,12 @@
                 }
 
                 if(!fecha_solicitada) {
-                    mostrarToast("Seleccioná la fecha solicitada por el agente.", "warning");
+                    mostrarToast("Seleccioná desde qué fecha solicita el agente.", "warning");
+                    return;
+                }
+
+                if(fecha_hasta < fecha_solicitada) {
+                    mostrarToast("La fecha Hasta no puede ser anterior a Desde.", "warning");
                     return;
                 }
 
@@ -3649,10 +3707,11 @@
                     .from(TABLAS.TURNOS)
                     .select('fecha, turno, modalidad, sucursal')
                     .eq('agente_id', parseInt(agente_id))
-                    .eq('fecha', fecha_solicitada);
+                    .gte('fecha', fecha_solicitada)
+                    .lte('fecha', fecha_hasta);
 
                 if(errorTurnos) {
-                    btn.innerText = "Registrar Novedad";
+                    btn.innerText = "Guardar pedido";
                     btn.disabled = false;
                     mostrarToast("No se pudo verificar si el agente tiene guardias en esa fecha: " + errorTurnos.message, "error");
                     return;
@@ -3669,7 +3728,7 @@
                         tipo: 'warning'
                     });
                     if(!continuar) {
-                        btn.innerText = "Registrar Novedad";
+                        btn.innerText = "Guardar pedido";
                         btn.disabled = false;
                         return;
                     }
@@ -3689,7 +3748,7 @@
                         notas_relevo
                     }]);
 
-                btn.innerText = "Registrar Novedad";
+                btn.innerText = "Guardar pedido";
                 btn.disabled = false;
 
                 if(error) {
@@ -3725,10 +3784,12 @@
 
             const agente = agentesEnMemoria.find(a => a.id == novedad.agente_id);
             const nombreAgente = agente ? agente.nombre_corto : 'Agente seleccionado';
+            const fechaHasta = obtenerFechaHastaNovedad(novedad);
+            const rangoTexto = formatearRangoNovedad(novedad);
 
             const continuar = await mostrarConfirmacionModerna({
                 titulo: 'Convertir en ausencia',
-                mensaje: `Se registrará una ausencia de tipo "${tipoAusencia}" para ${nombreAgente} el ${formatearFechaSimple(novedad.fecha_solicitada)}.
+                mensaje: `Se registrará una ausencia de tipo "${tipoAusencia}" para ${nombreAgente}: ${rangoTexto}.
 
 ¿Querés continuar?`,
                 textoAceptar: 'Convertir',
@@ -3739,7 +3800,7 @@
             const validacionAusencia = await validarAusenciaAntesDeRegistrar(
                 novedad.agente_id,
                 novedad.fecha_solicitada,
-                novedad.fecha_solicitada
+                fechaHasta
             );
 
             if(!validacionAusencia.ok) {
@@ -3767,7 +3828,7 @@
                 .insert([{
                     agente_id: parseInt(novedad.agente_id),
                     fecha_inicio: novedad.fecha_solicitada,
-                    fecha_fin: novedad.fecha_solicitada,
+                    fecha_fin: fechaHasta,
                     tipo: tipoAusencia,
                     notas
                 }]);
@@ -3816,7 +3877,7 @@
                 return;
             }
 
-            const notaActual = novedad.notas_relevo || "";
+            const notaActual = limpiarNotasRelevoNovedad(novedad.notas_relevo);
             const nuevaNota = await mostrarModalTexto({
                 titulo: 'Notas de relevo / cobertura',
                 subtitulo: 'Registrá quién cubre, el horario o cualquier detalle necesario.',
@@ -3828,7 +3889,13 @@
 
             const { error } = await supabaseClient
                 .from(TABLAS.NOVEDADES)
-                .update({ notas_relevo: nuevaNota.trim() || null })
+                .update({
+                    notas_relevo: construirNotasRelevoConRango(
+                        nuevaNota.trim(),
+                        novedad.fecha_solicitada,
+                        obtenerFechaHastaNovedad(novedad)
+                    )
+                })
                 .eq('id', id);
 
             if(error) {
