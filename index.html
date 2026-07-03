@@ -477,13 +477,13 @@
             <div class="p-4 md:p-5 border-b bg-slate-50/80 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                     <h2 class="text-xl font-bold text-gray-800">🗓️ Calendario Operativo</h2>
-                    <p class="text-xs text-gray-500 mt-1">Vacaciones, guardias, registro diario y notas manuales en una sola vista.</p>
+                    <p class="text-xs text-gray-500 mt-1">Vacaciones, guardias y notas; el registro diario aparece al abrir cada fecha.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <button id="btnCalendarioAnterior" type="button" class="bg-white hover:bg-gray-100 border text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition">←</button>
                     <button id="btnCalendarioHoy" type="button" class="bg-violet-600 hover:bg-violet-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition">Hoy</button>
                     <button id="btnCalendarioSiguiente" type="button" class="bg-white hover:bg-gray-100 border text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition">→</button>
-                    <button id="btnCalendarioRecargar" type="button" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold px-3 py-2 rounded-lg text-sm transition">Actualizar</button>
+                    <button id="btnCalendarioRecargar" type="button" class="w-9 h-9 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-black rounded-lg text-lg transition flex items-center justify-center" title="Actualizar calendario" aria-label="Actualizar calendario">&#8635;</button>
                     <button id="btnToggleCalendario" type="button" class="w-9 h-9 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-lg text-base transition flex items-center justify-center" title="Minimizar calendario" aria-label="Minimizar calendario">▴</button>
                 </div>
             </div>
@@ -491,12 +491,11 @@
                 <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
                     <div>
                         <div id="calendarioTituloMes" class="text-2xl font-black text-slate-900">Mes</div>
-                        <div id="calendarioResumenMes" class="text-xs text-slate-500 mt-1">Cargando calendario...</div>
+                        <div id="calendarioResumenMes" class="text-xs text-slate-500 mt-1"></div>
                     </div>
                     <div class="flex flex-wrap gap-2 text-[11px] font-bold">
                         <span class="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100">Ausencias</span>
                         <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Guardias</span>
-                        <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">Diario</span>
                         <span class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-100">Notas</span>
                     </div>
                 </div>
@@ -5637,7 +5636,7 @@
                 });
             }
 
-            ['Ausencias', 'Registro diario', 'Notas'].forEach(categoria => {
+            ['Ausencias', 'Notas'].forEach(categoria => {
                 eventos
                     .filter(ev => ev.categoria === categoria)
                     .forEach(ev => items.push(ev));
@@ -5664,7 +5663,7 @@
             const resumen = document.getElementById('calendarioResumenMes');
             if(!grid) return;
 
-            const { inicio, fin } = obtenerInicioFinMesCalendario();
+            const { inicio } = obtenerInicioFinMesCalendario();
             const nombreMes = inicio.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' });
             if(titulo) titulo.textContent = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
 
@@ -5673,7 +5672,6 @@
             inicioGrid.setDate(inicio.getDate() - primerDiaSemana);
             const hoyISO = obtenerFechaActualISO();
             const celdas = [];
-            let totalEventosMes = 0;
 
             for(let i = 0; i < 42; i++) {
                 const fecha = new Date(inicioGrid);
@@ -5682,7 +5680,6 @@
                 const esMesActual = fecha.getMonth() === inicio.getMonth();
                 const eventos = obtenerEventosCalendarioPorFecha(fechaISO);
                 const itemsCelda = obtenerItemsVisiblesCalendarioParaCelda(fechaISO, eventos);
-                if(esMesActual) totalEventosMes += eventos.length;
                 const eventosVisibles = itemsCelda.slice(0, 4);
                 const extras = itemsCelda.length - eventosVisibles.length;
                 const esHoy = fechaISO === hoyISO;
@@ -5703,7 +5700,7 @@
 
             grid.innerHTML = celdas.join('');
             grid.dataset.calendarioRenderizado = '1';
-            if(resumen) resumen.textContent = `${totalEventosMes} registro(s) operativo(s) en ${formatearFechaSimple(formatearFechaISODesdeDateLocal(inicio))} al ${formatearFechaSimple(formatearFechaISODesdeDateLocal(fin))}.`;
+            if(resumen) resumen.textContent = '';
         }
 
         function cerrarDetalleCalendario() {
