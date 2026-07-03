@@ -133,8 +133,8 @@
 
         .novedad-card {
             border: 1px solid #e5e7eb;
-            border-radius: 0.9rem;
-            padding: 0.9rem;
+            border-radius: 0.75rem;
+            padding: 0.7rem 0.8rem;
             background: #ffffff;
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         }
@@ -170,6 +170,10 @@
             border: 1px solid #e5e7eb;
             border-radius: 0.8rem;
             padding: 0.7rem 0.85rem;
+        }
+
+        .modal-novedad-card {
+            max-width: 560px;
         }
 
 
@@ -649,22 +653,29 @@
     </div>
 
     <!-- CONTENIDO PESTAÑA 3: NOVEDADES Y COBERTURAS -->
-    <div id="tab-novedades" class="auth-protected hidden tab-content app-wide mx-auto space-y-6 hidden">
-        <div class="bg-white rounded-xl shadow-lg p-4 md:p-6 border-t-4 border-sky-600">
-            <div>
-                <h2 class="text-xl font-bold text-gray-800">📝 Novedades y Coberturas</h2>
-                <p class="text-xs text-gray-500 mt-1 mb-4">Registrá pedidos anticipados de agentes y controlá si falta cubrir el puesto.</p>
+    <div id="tab-novedades" class="auth-protected hidden tab-content app-wide mx-auto space-y-4 hidden">
+        <div class="bg-white rounded-xl shadow-lg p-4 border-t-4 border-sky-600">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">📝 Pedidos de agentes</h2>
+                    <p class="text-xs text-gray-500 mt-1">Días libres, vacaciones, permisos y pedidos puntuales.</p>
+                </div>
+                <button id="btnAbrirModalNovedad" type="button" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow transition">
+                    + Nuevo pedido
+                </button>
             </div>
 
-            <div class="space-y-3">
-                <!-- Formulario de Novedades / Coberturas -->
-                <details id="panelNuevaNovedad" class="bg-sky-50 border border-sky-100 rounded-xl overflow-hidden">
-                    <summary class="cursor-pointer list-none p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm font-bold text-sky-800 select-none">
-                        <span>Nueva novedad</span>
-                        <span class="text-[11px] font-semibold text-sky-600">Abrir formulario</span>
-                    </summary>
-                    <form id="formNovedad" class="space-y-4 bg-white p-4 border-t border-sky-100">
-                        <h3 class="font-semibold text-gray-700 border-b pb-1 text-sm">Cargar Nueva Novedad</h3>
+            <!-- Formulario de Novedades / Coberturas -->
+            <div id="modalNovedad" class="modal-confirmacion-backdrop hidden">
+                <div class="modal-confirmacion-card modal-novedad-card">
+                    <div class="px-4 py-3 border-b flex items-center justify-between gap-3 bg-slate-50">
+                        <div>
+                            <h3 class="font-extrabold text-gray-800 text-base">Nuevo pedido</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Registrá lo solicitado por el agente.</p>
+                        </div>
+                        <button id="btnCerrarModalNovedad" type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-black w-8 h-8 rounded-lg transition">×</button>
+                    </div>
+                    <form id="formNovedad" class="modal-confirmacion-body space-y-3 p-4 bg-white">
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Agente que solicita:</label>
                         <select id="novedad_agente" class="w-full border rounded p-2 text-sm bg-white" required></select>
@@ -693,38 +704,43 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Detalle del Motivo (Opcional):</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Detalle (opcional):</label>
                         <textarea id="novedad_motivo_detalle" rows="2" class="w-full border rounded p-2 text-sm bg-white" placeholder="Ej: Compensación por soporte fuera de horario"></textarea>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Horario / Tiempo afectado (Opcional):</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Horario / tiempo afectado (opcional):</label>
                         <input type="text" id="novedad_observacion_tiempo" class="w-full border rounded p-2 text-sm bg-white" placeholder="Ej: Todo el día, entra 10:00, sale 13:00">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Estado de Cobertura:</label>
-                        <select id="novedad_estado" class="w-full border rounded p-2 text-sm bg-white" required>
-                            <option value="FALTA CUBRIR">FALTA CUBRIR</option>
-                            <option value="CUBIERTO">CUBIERTO</option>
-                            <option value="NO REQUIERE COBERTURA">NO REQUIERE COBERTURA</option>
-                            <option value="CANCELADO">CANCELADO</option>
-                        </select>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Cobertura:</label>
+                            <select id="novedad_estado" class="w-full border rounded p-2 text-sm bg-white" required>
+                                <option value="FALTA CUBRIR">FALTA CUBRIR</option>
+                                <option value="CUBIERTO">CUBIERTO</option>
+                                <option value="NO REQUIERE COBERTURA">NO REQUIERE COBERTURA</option>
+                                <option value="CANCELADO">CANCELADO</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Nota cobertura (opcional):</label>
+                            <input type="text" id="novedad_notas_relevo" class="w-full border rounded p-2 text-sm bg-white" placeholder="Ej: Cubre Andrea">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Notas de relevo / cobertura (Opcional):</label>
-                        <textarea id="novedad_notas_relevo" rows="2" class="w-full border rounded p-2 text-sm bg-white" placeholder="Ej: Cubre M. González de 07:00 a 12:00"></textarea>
-                    </div>
-                        <button type="submit" id="btnGuardarNovedad" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded text-sm shadow transition">
-                            Registrar Novedad
+                    <div class="flex justify-end gap-2 pt-1">
+                        <button type="button" id="btnCancelarNovedad" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition">Cancelar</button>
+                        <button type="submit" id="btnGuardarNovedad" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow transition">
+                            Guardar pedido
                         </button>
+                    </div>
                     </form>
-                </details>
+                </div>
+            </div>
 
                 <!-- Listado de Novedades -->
-                <div class="space-y-3">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3">
+                <div class="space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t pt-3">
                         <div>
-                            <h3 class="font-semibold text-gray-700 text-sm">Pedidos y Coberturas Registradas</h3>
-                            <p class="text-[11px] text-gray-500 mt-0.5">Vista simplificada para revisar el pedido, su cobertura y las acciones disponibles sin mezclar demasiada información.</p>
+                            <h3 class="font-semibold text-gray-700 text-sm">Pedidos registrados</h3>
                         </div>
                         <select id="filtroEstadoNovedades" class="border rounded-lg p-1.5 text-xs bg-white outline-none focus:ring-2 focus:ring-sky-500 min-w-[180px]">
                             <option value="pendientes">Ver pendientes</option>
@@ -736,13 +752,12 @@
                         </select>
                     </div>
 
-                    <div id="resumenNovedades" class="grid grid-cols-2 lg:grid-cols-4 gap-2"></div>
+                    <div id="resumenNovedades" class="text-[11px] text-gray-500"></div>
 
-                    <div class="max-h-[640px] overflow-y-auto space-y-3 pr-1" id="listaNovedades">
+                    <div class="max-h-[640px] overflow-y-auto space-y-2 pr-1" id="listaNovedades">
                         <div class="novedad-card text-center text-gray-400">Cargando novedades...</div>
                     </div>
                 </div>
-            </div>
         </div>
     </div>
 
@@ -1546,6 +1561,12 @@
             if(estaModalVisible('modalConfirmacion')) {
                 e.preventDefault();
                 document.getElementById('btnModalCancelar')?.click();
+                return;
+            }
+
+            if(estaModalVisible('modalNovedad')) {
+                e.preventDefault();
+                cerrarModalNovedad();
                 return;
             }
 
@@ -3426,28 +3447,13 @@
             const resumen = {
                 total: novedadesFiltradas.length,
                 pendientes: novedadesFiltradas.filter(n => (n.estado_cobertura || 'FALTA CUBRIR') === 'FALTA CUBRIR').length,
-                cubiertas: novedadesFiltradas.filter(n => (n.estado_cobertura || 'FALTA CUBRIR') === 'CUBIERTO').length,
                 convertidas: novedadesFiltradas.filter(n => novedadYaFueConvertidaEnAusencia(n)).length
             };
 
-            contenedor.innerHTML = `
-                <div class="novedad-resumen-box">
-                    <div class="text-[10px] uppercase font-bold text-gray-500">Total visible</div>
-                    <div class="text-xl font-extrabold text-gray-800 mt-1">${resumen.total}</div>
-                </div>
-                <div class="novedad-resumen-box">
-                    <div class="text-[10px] uppercase font-bold text-amber-600">Pendientes</div>
-                    <div class="text-xl font-extrabold text-amber-700 mt-1">${resumen.pendientes}</div>
-                </div>
-                <div class="novedad-resumen-box">
-                    <div class="text-[10px] uppercase font-bold text-emerald-600">Cubiertas</div>
-                    <div class="text-xl font-extrabold text-emerald-700 mt-1">${resumen.cubiertas}</div>
-                </div>
-                <div class="novedad-resumen-box">
-                    <div class="text-[10px] uppercase font-bold text-rose-600">Convertidas en ausencia</div>
-                    <div class="text-xl font-extrabold text-rose-700 mt-1">${resumen.convertidas}</div>
-                </div>
-            `;
+            const partes = [`${resumen.total} pedido(s)`];
+            if(resumen.pendientes > 0) partes.push(`${resumen.pendientes} pendiente(s)`);
+            if(resumen.convertidas > 0) partes.push(`${resumen.convertidas} ya registradas como ausencia`);
+            contenedor.textContent = partes.join(' · ');
         }
 
         function renderizarTablaNovedades() {
@@ -3473,9 +3479,9 @@
                 const puedeConvertirse = novedadPuedeConvertirseEnAusencia(nov);
                 const yaConvertida = novedadYaFueConvertidaEnAusencia(nov);
                 const botonConvertirAusencia = yaConvertida
-                    ? `<span class="inline-flex items-center px-2.5 py-1 text-[10px] rounded-lg bg-red-50 text-red-700 font-bold" title="Esta novedad ya tiene una ausencia registrada para esa fecha">Ausencia registrada</span>`
+                    ? `<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-700 font-black" title="Ausencia ya registrada">✓</span>`
                     : (puedeConvertirse
-                        ? `<button onclick="convertirNovedadEnAusencia(${nov.id})" class="novedad-action-btn bg-red-50 text-red-700 border border-red-100 hover:bg-red-100" title="Convertir esta novedad en ausencia">🚫 Convertir en ausencia</button>`
+                        ? `<button onclick="convertirNovedadEnAusencia(${nov.id})" class="novedad-action-btn bg-red-50 text-red-700 border border-red-100 hover:bg-red-100" title="Convertir en ausencia">Ausencia</button>`
                         : '');
 
                 const resumenMotivo = nov.motivo_pedido || '-';
@@ -3485,19 +3491,21 @@
                 const card = document.createElement('div');
                 card.className = 'novedad-card';
                 card.innerHTML = `
-                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-2">
                         <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <div class="flex flex-wrap items-center gap-2">
                                 <h4 class="text-sm font-extrabold text-gray-800">${escaparHTML(nombre)}</h4>
-                                <span class="novedad-chip bg-sky-50 text-sky-700">Solicitado: ${formatearFechaSimple(nov.fecha_solicitada)}</span>
-                                <span class="novedad-chip bg-gray-100 text-gray-600">Pedido: ${formatearFechaSimple(nov.fecha_pedido)}</span>
-                                <span class="inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase ${obtenerClaseEstadoNovedad(estado)}">${escaparHTML(estado)}</span>
+                                <span class="novedad-chip bg-sky-50 text-sky-700">${formatearFechaSimple(nov.fecha_solicitada)}</span>
                             </div>
-                            <div class="text-sm font-semibold text-gray-800 line-clamp-2">${escaparHTML(resumenMotivo)}</div>
-                            ${resumenTiempo ? `<div class="text-xs text-gray-500 mt-1 line-clamp-1">${escaparHTML(resumenTiempo.replace(/^ · /, ''))}</div>` : ''}
-                            <details class="mt-3 bg-gray-50 border rounded-lg px-3 py-2">
+                            <div class="mt-1 text-sm font-semibold text-gray-800 line-clamp-2">${escaparHTML(resumenMotivo)}</div>
+                            ${resumenTiempo ? `<div class="text-xs text-gray-500 line-clamp-1">${escaparHTML(resumenTiempo.replace(/^ · /, ''))}</div>` : ''}
+                            <details class="mt-2 bg-gray-50 border rounded-lg px-2.5 py-1.5">
                                 <summary class="cursor-pointer select-none text-[11px] font-bold text-gray-600">Ver detalle</summary>
-                                <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                    <div>
+                                        <div class="text-[10px] uppercase font-bold text-gray-500 mb-1">Pedido</div>
+                                        <div class="text-gray-600">${formatearFechaSimple(nov.fecha_pedido)}</div>
+                                    </div>
                                     <div>
                                         <div class="text-[10px] uppercase font-bold text-gray-500 mb-1">Motivo completo</div>
                                         <div class="text-gray-700 whitespace-pre-line">${escaparHTML(resumenMotivo)}</div>
@@ -3509,13 +3517,13 @@
                                 </div>
                             </details>
                         </div>
-                        <div class="w-full lg:w-[250px] shrink-0 space-y-2">
-                            <select onchange="actualizarEstadoNovedad(${nov.id}, this.value)" class="w-full border rounded-lg p-2 text-[11px] bg-white">
+                        <div class="w-full lg:w-[230px] shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2">
+                            <select onchange="actualizarEstadoNovedad(${nov.id}, this.value)" class="w-full border rounded-lg p-2 text-[11px] bg-white ${obtenerClaseEstadoNovedad(estado)} font-bold">
                                 ${estadoOptions}
                             </select>
-                            <div class="flex flex-wrap gap-2 lg:justify-end">
+                            <div class="flex flex-wrap gap-1.5 lg:justify-end">
                                 ${botonConvertirAusencia}
-                                <button onclick="editarNotaCobertura(${nov.id})" class="novedad-action-btn bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100" title="Editar nota de cobertura">📝 Nota</button>
+                                <button onclick="editarNotaCobertura(${nov.id})" class="novedad-action-btn bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100" title="Editar nota">Nota</button>
                                 <button onclick="eliminarNovedad(${nov.id})" class="novedad-action-btn bg-red-50 text-red-700 border border-red-100 hover:bg-red-100" title="Eliminar novedad">✕</button>
                             </div>
                         </div>
@@ -3536,6 +3544,26 @@
             if(fechaPedido && !fechaPedido.value) {
                 fechaPedido.value = obtenerFechaActualISO();
             }
+
+            document.getElementById('btnAbrirModalNovedad')?.addEventListener('click', abrirModalNovedad);
+            document.getElementById('btnCerrarModalNovedad')?.addEventListener('click', cerrarModalNovedad);
+            document.getElementById('btnCancelarNovedad')?.addEventListener('click', cerrarModalNovedad);
+            document.getElementById('modalNovedad')?.addEventListener('click', (e) => {
+                if(e.target.id === 'modalNovedad') cerrarModalNovedad();
+            });
+        }
+
+        function abrirModalNovedad() {
+            const modal = document.getElementById('modalNovedad');
+            if(!modal) return;
+            const fechaPedido = document.getElementById('novedad_fecha_pedido');
+            if(fechaPedido && !fechaPedido.value) fechaPedido.value = obtenerFechaActualISO();
+            modal.classList.remove('hidden');
+            setTimeout(() => document.getElementById('novedad_agente')?.focus(), 50);
+        }
+
+        function cerrarModalNovedad() {
+            document.getElementById('modalNovedad')?.classList.add('hidden');
         }
 
         function construirMotivoNovedad() {
@@ -3667,12 +3695,11 @@
                     mostrarToast("No se pudo registrar la novedad: " + error.message, "error");
                 } else {
                     document.getElementById('formNovedad').reset();
-                    const panelNuevaNovedad = document.getElementById('panelNuevaNovedad');
-                    if(panelNuevaNovedad) panelNuevaNovedad.open = false;
+                    cerrarModalNovedad();
                     document.getElementById('novedad_fecha_pedido').value = obtenerFechaActualISO();
                     document.getElementById('novedad_estado').value = 'FALTA CUBRIR';
                     await listarNovedades();
-                    mostrarToast("Novedad registrada con éxito.", "success");
+                    mostrarToast("Pedido registrado con éxito.", "success");
                 }
             });
         }
