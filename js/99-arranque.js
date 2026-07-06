@@ -52,13 +52,41 @@
                     .split(' - ')
                     .slice(1)
                     .join(' - ');
+                const textoParaClasificar = `${tipoAusencia} ${evento.detalle || ''}`;
 
                 return {
                     ...evento,
-                    clase: obtenerClaseAusenciaCalendario(tipoAusencia)
+                    clase: obtenerClaseAusenciaCalendario(textoParaClasificar)
                 };
             });
         };
+
+        function instalarOpcionesAusencia() {
+            const select = document.getElementById('ausencia_tipo');
+            if(!select) return;
+
+            const opciones = [
+                'Vacaciones',
+                'Día Libre',
+                'Cumpleaños',
+                'Permiso',
+                'Reposo',
+                'Consulta médica',
+                'Entrada más tarde',
+                'Salida más temprano',
+                'Otro'
+            ];
+
+            opciones.forEach(opcion => {
+                const existe = Array.from(select.options).some(item => item.value === opcion);
+                if(existe) return;
+
+                const option = document.createElement('option');
+                option.value = opcion;
+                option.textContent = opcion;
+                select.appendChild(option);
+            });
+        }
 
         function instalarIconoPestanaGestor() {
             const svg = `
@@ -89,6 +117,7 @@
             icono.href = href;
         }
 
+        instalarOpcionesAusencia();
         instalarIconoPestanaGestor();
 
         // Disparar inicialización general
