@@ -61,6 +61,35 @@
             });
         };
 
+        const obtenerItemsVisiblesCalendarioParaCeldaOriginal = obtenerItemsVisiblesCalendarioParaCelda;
+
+        function obtenerOrdenColorCalendario(clase = '') {
+            const valor = String(clase || '').toLowerCase();
+
+            if(valor.includes('red') || valor.includes('rose') || valor.includes('fuchsia')) return 10;
+            if(valor.includes('orange') || valor.includes('amber') || valor.includes('yellow')) return 20;
+            if(valor.includes('emerald') || valor.includes('green')) return 30;
+            if(valor.includes('sky') || valor.includes('cyan') || valor.includes('blue')) return 40;
+            if(valor.includes('violet') || valor.includes('purple') || valor.includes('indigo')) return 50;
+            if(valor.includes('slate') || valor.includes('gray')) return 60;
+
+            return 99;
+        }
+
+        function ordenarItemsCalendarioPorColor(items = []) {
+            return [...items].sort((a, b) => {
+                const ordenColor = obtenerOrdenColorCalendario(a.clase) - obtenerOrdenColorCalendario(b.clase);
+                if(ordenColor !== 0) return ordenColor;
+
+                return String(a.etiqueta || '').localeCompare(String(b.etiqueta || ''), 'es', { sensitivity: 'base' });
+            });
+        }
+
+        obtenerItemsVisiblesCalendarioParaCelda = function(fechaISO, eventos) {
+            const items = obtenerItemsVisiblesCalendarioParaCeldaOriginal(fechaISO, eventos);
+            return ordenarItemsCalendarioPorColor(items);
+        };
+
         function instalarOpcionesAusencia() {
             const select = document.getElementById('ausencia_tipo');
             if(!select) return;
