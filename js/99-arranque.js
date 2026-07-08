@@ -4,6 +4,12 @@
         // No cambia datos ni consultas; solo modifica la clase visual de los eventos ya generados.
         const obtenerEventosCalendarioPorFechaOriginal = obtenerEventosCalendarioPorFecha;
 
+        const HORARIOS_IDENTIFICACIONES_PLANIFICADOR = {
+            'Mañana': '07:00 a 12:00',
+            'Tarde': '12:00 a 17:00'
+        };
+        const MARCA_HORARIO_IDENTIFICACIONES = '[HORARIO:';
+
         function normalizarTipoAusenciaCalendario(tipo = '') {
             return String(tipo || '')
                 .normalize('NFD')
@@ -42,10 +48,57 @@
             return 'bg-slate-50 text-slate-700 border-slate-100';
         }
 
+        function obtenerHorarioBaseIdentificaciones(turno = '') {
+            return HORARIOS_IDENTIFICACIONES_PLANIFICADOR[turno] || obtenerHorarioPorTurnoRegistroDiario(turno) || '';
+        }
+
+        function limpiarSucursalHorarioPlanificador(sucursal = '') {
+            return String(sucursal || '')
+                .replace(/\s*\[HORARIO:[^\]]+\]\s*/g, ' ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
+        function obtenerHorarioPersonalizadoPlanificador(row = {}) {
+            const texto = String(row.sucursal || '');
+            const match = texto.match(/\[HORARIO:([^\]]+)\]/);
+            const horarioGuardado = match ? match[1].trim() : '';
+            return horarioGuardado || obtenerHorarioBaseIdentificaciones(row.turno || '');
+        }
+
+        function construirSucursalIdentificacionesConHorario(sucursalBase = '', horario = '') {
+            const base = limpiarSucursalHorarioPlanificador(sucursalBase) || 'Dpto de Identificaciones';
+            const horarioLimpio = String(horario || '').trim();
+            return horarioLimpio ? `${base} [HORARIO:${horarioLimpio}]` : base;
+        }
+
+        function obtenerIdHorarioIdentificacion(fecha, turno) {
+            return `horario_ident_${fecha}_${turno}`;
+        }
+
+        function leerHorarioIdentificacionDesdePantalla(fecha, turno) {
+            const input = document.getElementById(obtenerIdHorarioIdentificacion(fecha, turno));
+            return (input?.value || '').trim() || obtenerHorarioBaseIdentificaciones(turno);
+        }
+
         obtenerEventosCalendarioPorFecha = function(fechaISO) {
             const eventos = obtenerEventosCalendarioPorFechaOriginal(fechaISO);
 
             return eventos.map(evento => {
+                if(evento.tipo === 'guardia') {
+                    const turnoRelacionado = (turnosCalendarioEnMemoria || []).find(turno =>
+                        turno.fecha === fechaISO &&
+                        obtenerNombreAgentePorId(turno.agente_id) === evento.etiqueta
+                    );
+                    if(turnoRelacionado && esRegistroIdentificaciones(turnoRelacionado)) {
+                        const horario = obtenerHorarioPersonalizadoPlanificador(turnoRelacionado);
+                        return {
+                            ...evento,
+                            detalle: `Turno: ${turnoRelacionado.turno || '-'}\nHorario: ${horario || '-'}\nArea: Identificaciones`
+                        };
+                    }
+                }
+
                 if(evento.tipo !== 'ausencia') return evento;
 
                 const tipoAusencia = String(evento.titulo || '')
@@ -119,6 +172,311 @@
             }).join('');
         };
 
+        const renderizarTablasPlanificacionOriginal = renderizarTablasPlanificacion;
+        renderizarTablasPlanificacion = function() {
+            renderizarTablasPlanificacionOriginal();
+            agregarControlesHorarioIdentificaciones();
+        };
+
+        function agregarControlesHorarioIdentificaciones() {
+            document.querySelectorAll('select[id^="ident_"]').forEach(select => {
+                const parts = select.id.split('_');
+                if(parts.length < 3 || select.dataset.horarioEspecialInstalado === '1') return;
+                const fecha = parts[1];
+                const turno = parts[2];
+                const idHorario = obtenerIdHorarioIdentificacion(fecha, turno);
+                const valorGuardado = seleccionesTemporales[idHorario] || obtenerHorarioBaseIdentificaciones(turno);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = idHorario;
+                input.value = valorGuardado;
+                input.placeholder = obtenerHorarioBaseIdentificaciones(turno);
+                input.title = 'Horario real de cobertura';
+                input.setAttribute('aria-label', `Horario ${turno} Identificaciones`);
+                input.className = 'horario-ident-input mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center text-[11px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-amber-400';
+                input.addEventListener('input', (e) => {
+                    seleccionesTemporales[e.target.id] = e.target.value;
+                });
+
+                select.insertAdjacentElement('afterend', input);
+                select.dataset.horarioEspecialInstalado = '1';
+            });
+        }
+
+        guardarSeleccionesTemporales = function() {
+            seleccionesTemporales = {};
+            document.querySelectorAll('.agente-select').forEach(select => {
+                seleccionesTemporales[select.id] = select.value;
+            });
+            document.querySelectorAll('.horario-ident-input').forEach(input => {
+                seleccionesTemporales[input.id] = input.value;
+            });
+        };
+
+        const cargarTurnosGuardadosParaPlanificacionOriginal = cargarTurnosGuardadosParaPlanificacion;
+        cargarTurnosGuardadosParaPlanificacion = async function(fechasAFetch = []) {
+            await cargarTurnosGuardadosParaPlanificacionOriginal(fechasAFetch);
+
+            const fechas = fechasAFetch.length > 0 ? fechasAFetch : diasPlanificados.map(d => d.fecha);
+            if(fechas.length === 0) return;
+
+            const { data, error } = await supabaseClient
+                .from(TABLAS.TURNOS)
+                .select('fecha, turno, agente_id, modalidad, sucursal')
+                .in('fecha', fechas);
+
+            if(error || !data) return;
+
+            data.filter(esRegistroIdentificaciones).forEach(turno => {
+                const input = document.getElementById(obtenerIdHorarioIdentificacion(turno.fecha, turno.turno));
+                if(!input) return;
+                const horario = obtenerHorarioPersonalizadoPlanificador(turno);
+                input.value = horario;
+                seleccionesTemporales[input.id] = horario;
+            });
+        };
+
+        construirNombresTurnoCalendario = function(fechaISO, area, turno) {
+            const items = obtenerTurnosPorAreaYTurnoCalendario(fechaISO, area, turno)
+                .filter(item => obtenerNombreAgentePorId(item.agente_id) && obtenerNombreAgentePorId(item.agente_id) !== '-');
+
+            if(items.length === 0) {
+                return '<span class="text-slate-400 italic">Sin asignar</span>';
+            }
+
+            return items.map(item => {
+                const nombre = obtenerNombreAgentePorId(item.agente_id);
+                const horario = esRegistroIdentificaciones(item) ? obtenerHorarioPersonalizadoPlanificador(item) : '';
+                return `
+                    <div class="font-bold text-slate-800">${escaparHTML(nombre)}</div>
+                    ${horario ? `<div class="text-[10px] font-semibold text-slate-500">${escaparHTML(horario)}</div>` : ''}
+                `;
+            }).join('');
+        };
+
+        sincronizarTurnosIdentificacionesConRegistroDiario = async function(turnos, opciones = {}) {
+            const filasIdentificacionesSabado = (turnos || []).filter(row => {
+                if(!row || !row.fecha || !row.agente_id) return false;
+                const dia = new Date(row.fecha + 'T00:00:00').getDay();
+                return dia === 6 && esRegistroIdentificaciones(row);
+            });
+
+            const fechasSabadoIdent = [...new Set(filasIdentificacionesSabado.map(row => row.fecha))];
+            if(fechasSabadoIdent.length === 0) {
+                return {
+                    ok: true,
+                    insertados: 0,
+                    reemplazados: 0,
+                    omitidos: 0,
+                    totalPlanificador: 0,
+                    fechas: [],
+                    registros: [],
+                    conflictos: [],
+                    omitidosDetalle: []
+                };
+            }
+
+            const { data: existentes, error: errorExistentes } = await supabaseClient
+                .from(TABLAS.COBERTURAS_DIARIAS)
+                .select('id, fecha, area, turno, agente_titular_id, tipo_novedad, horario_afectado, estado_cobertura, observaciones, created_at')
+                .in('fecha', fechasSabadoIdent)
+                .eq('area', 'Identificaciones');
+
+            if(errorExistentes) {
+                console.error('Error al revisar registros diarios existentes:', errorExistentes);
+                return { ok: false, mensaje: errorExistentes.message, insertados: 0, fechas: fechasSabadoIdent };
+            }
+
+            const registrosAutomaticosPrevios = (existentes || []).filter(esRegistroAutomaticoPlanificador);
+            const registrosParaCompararManual = (existentes || []).filter(reg => !esRegistroAutomaticoPlanificador(reg));
+            const registrosDiarios = [];
+            const omitidosDetalle = [];
+            const conflictos = [];
+
+            filasIdentificacionesSabado.forEach(row => {
+                const horarioPersonalizado = obtenerHorarioPersonalizadoPlanificador(row);
+                const registro = {
+                    fecha: row.fecha,
+                    area: 'Identificaciones',
+                    turno: row.turno,
+                    agente_titular_id: parseInt(row.agente_id),
+                    tipo_novedad: 'Cobertura planificada de sábado',
+                    motivo: 'Cobertura presencial de Identificaciones registrada desde el planificador de fin de semana.',
+                    requiere_cobertura: true,
+                    estado_cobertura: 'CUBIERTO',
+                    agente_cobertura_id: parseInt(row.agente_id),
+                    forma_cobertura: 'Guardia planificada de sábado',
+                    horario_afectado: horarioPersonalizado,
+                    resultado: 'Cobertura registrada automáticamente desde el planificador.',
+                    observaciones: `${MARCA_AUTO_PLANIFICADOR_IDENTIFICACIONES} Sincronizado desde el planificador de sábado de Identificaciones.`,
+                    novedad_id: null
+                };
+
+                const duplicadoManual = obtenerRegistrosDiariosExactos(registrosParaCompararManual, registro).length > 0;
+                if(duplicadoManual) {
+                    omitidosDetalle.push({ fecha: row.fecha, turno: row.turno, agente_id: row.agente_id });
+                    return;
+                }
+
+                const conflictosRegistro = obtenerConflictosOperativosRegistroDiario(row.fecha, row.agente_id, existentes || [], {
+                    area: registro.area,
+                    turno: registro.turno,
+                    tipo_novedad: registro.tipo_novedad,
+                    horario_afectado: registro.horario_afectado,
+                    ignorarAutoPlanificador: true
+                });
+
+                if(conflictosRegistro.length > 0) {
+                    conflictos.push({ fecha: row.fecha, turno: row.turno, agente_id: row.agente_id, conflictos: conflictosRegistro });
+                    registro.observaciones += ` Revisión sugerida: ${conflictosRegistro.join(' ')}`;
+                }
+
+                registrosDiarios.push(registro);
+            });
+
+            const resumen = {
+                ok: true,
+                insertados: registrosDiarios.length,
+                reemplazados: registrosAutomaticosPrevios.length,
+                omitidos: omitidosDetalle.length,
+                omitidosDetalle,
+                totalPlanificador: filasIdentificacionesSabado.length,
+                fechas: fechasSabadoIdent,
+                registros: registrosDiarios,
+                conflictos
+            };
+
+            if(opciones.vistaPrevia) {
+                return resumen;
+            }
+
+            const { error: deleteError } = await supabaseClient
+                .from(TABLAS.COBERTURAS_DIARIAS)
+                .delete()
+                .in('fecha', fechasSabadoIdent)
+                .eq('area', 'Identificaciones')
+                .ilike('observaciones', `%${MARCA_AUTO_PLANIFICADOR_IDENTIFICACIONES}%`);
+
+            if(deleteError) {
+                console.error('Error al limpiar registros diarios automáticos:', deleteError);
+                return { ok: false, mensaje: deleteError.message, insertados: 0, fechas: fechasSabadoIdent };
+            }
+
+            if(registrosDiarios.length === 0) {
+                return resumen;
+            }
+
+            const { error: insertError } = await supabaseClient
+                .from(TABLAS.COBERTURAS_DIARIAS)
+                .insert(registrosDiarios);
+
+            if(insertError) {
+                console.error('Error al sincronizar registro diario:', insertError);
+                return { ok: false, mensaje: insertError.message, insertados: 0, fechas: fechasSabadoIdent };
+            }
+
+            return resumen;
+        };
+
+        async function guardarPlanificadorConHorariosEspeciales() {
+            if(diasPlanificados.length === 0) {
+                mostrarToast('Por favor, selecciona la fecha del sábado antes de guardar.', 'warning');
+                return;
+            }
+
+            const filasAInsertar = [];
+            const fechasPlanificadas = diasPlanificados.map(d => d.fecha);
+
+            diasPlanificados.forEach(dia => {
+                ['Mañana', 'Tarde', 'Noche'].forEach(turno => {
+                    const selectEl = document.getElementById(`cc_${dia.fecha}_${turno}`);
+                    const agenteId = selectEl ? selectEl.value : '';
+                    if(agenteId) {
+                        filasAInsertar.push({
+                            fecha: dia.fecha,
+                            turno,
+                            agente_id: parseInt(agenteId),
+                            modalidad: 'Contact Center',
+                            sucursal: null
+                        });
+                    }
+                });
+
+                if(dia.tipo === 'sabado') {
+                    ['Mañana', 'Tarde'].forEach(turno => {
+                        const selectEl = document.getElementById(`ident_${dia.fecha}_${turno}`);
+                        const agenteId = selectEl ? selectEl.value : '';
+                        if(agenteId) {
+                            const datosAgente = agentesEnMemoria.find(a => a.id == agenteId);
+                            const horario = leerHorarioIdentificacionDesdePantalla(dia.fecha, turno);
+                            const sucursalBase = datosAgente && datosAgente.sucursal ? datosAgente.sucursal : 'Dpto de Identificaciones';
+                            filasAInsertar.push({
+                                fecha: dia.fecha,
+                                turno,
+                                agente_id: parseInt(agenteId),
+                                modalidad: 'Presencial',
+                                sucursal: construirSucursalIdentificacionesConHorario(sucursalBase, horario)
+                            });
+                        }
+                    });
+                }
+            });
+
+            if(filasAInsertar.length === 0) {
+                mostrarToast('Por favor, selecciona al menos un agente antes de guardar.', 'warning');
+                return;
+            }
+
+            const validacionCuadrante = validarCuadranteAntesDeGuardar(filasAInsertar);
+            if(!validacionCuadrante.ok) {
+                mostrarToast(validacionCuadrante.mensaje, 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('btnGuardar');
+            if(btn) {
+                btn.innerText = 'Guardando cuadrante...';
+                btn.disabled = true;
+            }
+
+            try {
+                const resultadoGuardado = await guardarCuadranteTransaccional(filasAInsertar, fechasPlanificadas);
+
+                if(!resultadoGuardado.ok) {
+                    mostrarToast(resultadoGuardado.mensaje, resultadoGuardado.tipo || 'error');
+                    return;
+                }
+
+                const syncRegistroDiario = await sincronizarSabadosIdentificacionesConRegistroDiario(filasAInsertar, fechasPlanificadas);
+                if(syncRegistroDiario.ok) {
+                    await listarCoberturasDiarias();
+                    await cargarDatosCalendario();
+                    const extra = syncRegistroDiario.insertados > 0 ? ` Además, se sincronizaron ${syncRegistroDiario.insertados} cobertura(s) de sábado de Identificaciones en el Registro Diario.` : '';
+                    mostrarToast('¡Planificación de fin de semana guardada con éxito!' + extra, 'success');
+                } else {
+                    mostrarToast('La planificación se guardó, pero no se pudo sincronizar el Registro Diario: ' + syncRegistroDiario.mensaje, 'warning');
+                }
+            } catch(errorInesperado) {
+                console.error('Error inesperado al guardar cuadrante:', errorInesperado);
+                mostrarToast('Ocurrió un error inesperado al guardar el cuadrante. Revisá la consola para más detalles.', 'error');
+            } finally {
+                if(btn) {
+                    btn.innerText = 'Guardar Cuadrante en Base de Datos';
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        function instalarGuardadoPlanificadorConHorarios() {
+            const btnOriginal = document.getElementById('btnGuardar');
+            if(!btnOriginal || btnOriginal.dataset.horariosEspeciales === '1') return;
+            const btnNuevo = btnOriginal.cloneNode(true);
+            btnNuevo.dataset.horariosEspeciales = '1';
+            btnOriginal.parentNode.replaceChild(btnNuevo, btnOriginal);
+            btnNuevo.addEventListener('click', guardarPlanificadorConHorariosEspeciales);
+        }
+
         function instalarOpcionesAusencia() {
             const select = document.getElementById('ausencia_tipo');
             if(!select) return;
@@ -176,6 +534,7 @@
         }
 
         instalarOpcionesAusencia();
+        instalarGuardadoPlanificadorConHorarios();
         instalarIconoPestanaGestor();
 
         // Disparar inicialización general
