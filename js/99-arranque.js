@@ -179,13 +179,30 @@
         };
 
         function agregarControlesHorarioIdentificaciones() {
-            document.querySelectorAll('select[id^="ident_"]').forEach(select => {
+            const tablaIdent = document.getElementById('tbody-ident')?.closest('table');
+            if(!tablaIdent) return;
+
+            document.querySelectorAll('#tbody-ident .horario-ident-input').forEach(input => input.remove());
+
+            const headers = tablaIdent.querySelectorAll('thead th');
+            const turnos = ['Mañana', 'Tarde'];
+
+            turnos.forEach((turno, index) => {
+                const select = document.querySelector(`select[id^="ident_"][id$="_${turno}"]`);
+                const th = headers[index + 1];
+                if(!select || !th) return;
+
                 const parts = select.id.split('_');
-                if(parts.length < 3 || select.dataset.horarioEspecialInstalado === '1') return;
                 const fecha = parts[1];
-                const turno = parts[2];
                 const idHorario = obtenerIdHorarioIdentificacion(fecha, turno);
-                const valorGuardado = seleccionesTemporales[idHorario] || obtenerHorarioBaseIdentificaciones(turno);
+                const valorExistente = document.getElementById(idHorario)?.value;
+                const valorGuardado = seleccionesTemporales[idHorario] || valorExistente || obtenerHorarioBaseIdentificaciones(turno);
+
+                th.innerHTML = '';
+
+                const label = document.createElement('div');
+                label.className = 'font-bold';
+                label.textContent = `Turno ${turno}`;
 
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -194,13 +211,13 @@
                 input.placeholder = obtenerHorarioBaseIdentificaciones(turno);
                 input.title = 'Horario real de cobertura';
                 input.setAttribute('aria-label', `Horario ${turno} Identificaciones`);
-                input.className = 'horario-ident-input mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center text-[11px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-amber-400';
+                input.className = 'horario-ident-input mt-1 w-36 max-w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-center text-xs font-normal text-emerald-950 outline-none transition hover:border-emerald-300 hover:bg-white/50 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-200';
                 input.addEventListener('input', (e) => {
                     seleccionesTemporales[e.target.id] = e.target.value;
                 });
 
-                select.insertAdjacentElement('afterend', input);
-                select.dataset.horarioEspecialInstalado = '1';
+                th.appendChild(label);
+                th.appendChild(input);
             });
         }
 
