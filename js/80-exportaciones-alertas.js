@@ -20,6 +20,15 @@
                 container.appendChild(textSpan);
             });
 
+            document.querySelectorAll('.horario-ident-input').forEach(input => {
+                const container = input.parentElement;
+                const textSpan = document.createElement('span');
+                textSpan.className = 'temp-text block w-full text-center text-xs font-normal text-emerald-950';
+                textSpan.innerText = input.value || input.placeholder || '';
+                input.classList.add('hidden');
+                container.appendChild(textSpan);
+            });
+
             setTimeout(() => {
                 html2canvas(target, {
                     scale: 2,
@@ -37,6 +46,7 @@
                 }).finally(() => {
                     document.querySelectorAll('.temp-text').forEach(span => span.remove());
                     document.querySelectorAll('.agente-select').forEach(select => select.classList.remove('hidden'));
+                    document.querySelectorAll('.horario-ident-input').forEach(input => input.classList.remove('hidden'));
                     document.querySelectorAll('.no-captura-whatsapp').forEach(el => el.classList.remove('hidden'));
                     btn.innerText = "📸 Descargar para WhatsApp";
                     btn.disabled = false;
@@ -258,110 +268,85 @@
                 modTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
                 const headers = esCallCenter 
-                    ? ['Fecha', 'Día', 'Horario', 'Agente Asignado']
-                    : ['Fecha', 'Día', 'Horario', 'Modalidad / Área', 'Sucursal', 'Agente Asignado'];
-                
+                    ? ['Fecha', 'Turno Mañana', 'Turno Tarde', 'Turno Noche']
+                    : ['Fecha', 'Agente', 'Sucursal', 'Modalidad', 'Turno', 'Observación'];
+
                 const headerRow = worksheet.addRow(headers);
                 headerRow.height = 24;
-
-                headers.forEach((h, index) => {
-                    const cell = headerRow.getCell(index + 1);
-                    cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF000000' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
-                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                headerRow.eachCell(cell => {
+                    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF000000' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
                     cell.border = {
-                        top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-                        bottom: { style: 'medium', color: { argb: 'FFF59E0B' } },
-                        left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-                        right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+                        top: { style: 'thin', color: { argb: 'FF808080' } },
+                        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+                        left: { style: 'thin', color: { argb: 'FF808080' } },
+                        right: { style: 'thin', color: { argb: 'FF808080' } }
                     };
                 });
 
-                if (registros.length === 0) {
-                    const noDataRow = worksheet.addRow(['Sin registros para esta sección en el período seleccionado']);
-                    noDataRow.height = 22;
-                    worksheet.mergeCells(`A${noDataRow.number}:${colLetra}${noDataRow.number}`);
-                    const noDataCell = noDataRow.getCell(1);
-                    noDataCell.font = { name: 'Segoe UI', size: 10, italic: true, color: { argb: 'FF9CA3AF' } };
-                    noDataCell.alignment = { vertical: 'middle', horizontal: 'center' };
-                    noDataCell.border = {
-                        top: { style: 'thin', color: { argb: 'FFE5E7EB' } }, bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-                        left: { style: 'thin', color: { argb: 'FFE5E7EB' } }, right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
-                    };
-                    return;
+                if (esCallCenter) {
+                    const fechas = [...new Set(registros.map(r => r.fecha))];
+                    fechas.forEach(fecha => {
+                        const rowData = [formatearFechaExcel(fecha), '', '', ''];
+                        registros.filter(r => r.fecha === fecha).forEach(r => {
+                            const nombre = obtenerNombreAgentePorId(r.agente_id);
+                            if (r.turno === 'Mañana') rowData[1] = nombre;
+                            if (r.turno === 'Tarde') rowData[2] = nombre;
+                            if (r.turno === 'Noche') rowData[3] = nombre;
+                        });
+                        worksheet.addRow(rowData);
+                    });
+                } else {
+                    registros.forEach(r => {
+                        worksheet.addRow([
+                            formatearFechaExcel(r.fecha),
+                            obtenerNombreAgentePorId(r.agente_id),
+                            r.sucursal || '-',
+                            r.modalidad || '-',
+                            r.turno || '-',
+                            'Guardia Identificaciones'
+                        ]);
+                    });
                 }
 
-                registros.forEach((row, rowIndex) => {
-                    const agente = agentesEnMemoria.find(a => a.id == row.agente_id);
-                    const nombreAgente = agente ? agente.nombre_corto : 'No asignado';
-
-                    const d = new Date(row.fecha + "T00:00:00");
-                    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                    const nombreDia = dias[d.getDay()];
-
-                    let horarioFormateado = row.turno;
-                    if (row.turno === 'Mañana') horarioFormateado = '07:00 a 12:00 hs';
-                    else if (row.turno === 'Tarde') horarioFormateado = '12:00 a 17:00 hs';
-                    else if (row.turno === 'Noche') horarioFormateado = '17:00 a 22:00 hs';
-
-                    let rowData = [];
-                    if (esCallCenter) {
-                        rowData = [formatearFechaExcel(row.fecha), nombreDia, horarioFormateado, nombreAgente];
-                    } else {
-                        rowData = [
-                            formatearFechaExcel(row.fecha),
-                            nombreDia,
-                            horarioFormateado,
-                            'Identificaciones',
-                            'Dpto de Identificaciones',
-                            nombreAgente
-                        ];
-                    }
-
-                    const addedRow = worksheet.addRow(rowData);
-                    addedRow.height = 22;
-
-                    addedRow.eachCell((cell) => {
-                        cell.font = { name: 'Segoe UI', size: 10 };
-                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                        if (rowIndex % 2 === 0) {
-                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
-                        }
+                const startRow = headerRow.number + 1;
+                const endRow = worksheet.lastRow.number;
+                for (let i = startRow; i <= endRow; i++) {
+                    const row = worksheet.getRow(i);
+                    row.height = 22;
+                    row.eachCell(cell => {
+                        cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF111827' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
                         cell.border = {
-                            top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-                            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-                            left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-                            right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+                            top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+                            bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+                            left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+                            right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
                         };
                     });
-                });
+                }
+
+                worksheet.addRow([]);
             }
 
-            generarTablaModulo('CAMPAÑA MITIC — CALL CENTER', callCenterRows, true);
-            worksheet.addRow([]);
-            worksheet.addRow([]);
-            generarTablaModulo('CAMPAÑA MITIC — DPTO DE IDENTIFICACIONES', identificacionesRows, false);
-            worksheet.addRow([]);
+            generarTablaModulo('CAMPAÑA MITIC. CALL CENTER', callCenterRows, true);
+            generarTablaModulo('CAMPAÑA MITIC. DPTO DE IDENTIFICACIONES', identificacionesRows, false);
 
-            const footerRow = worksheet.addRow(['Reporte generado desde Gestor de Guardias MITIC']);
-            worksheet.mergeCells(`A${footerRow.number}:F${footerRow.number}`);
-            const footerCell = footerRow.getCell(1);
-            footerCell.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF6B7280' } };
-            footerCell.alignment = { vertical: 'middle', horizontal: 'right' };
+            worksheet.columns = [
+                { width: 18 }, { width: 28 }, { width: 28 }, { width: 24 }, { width: 18 }, { width: 26 }
+            ];
 
-            const columnWidths = [14, 14, 22, 26, 20, 30];
-            worksheet.columns.forEach((col, index) => {
-                col.width = columnWidths[index];
-            });
-
-            const nombreArchivo = `Reporte_Guardias_MITIC_${type}_${new Date().toISOString().split('T')[0]}.xlsx`;
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = nombreArchivo;
+            link.href = url;
+            link.download = `Historial_Guardias_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(link);
             link.click();
-            URL.revokeObjectURL(link.href);
-        }
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
-        // ============================================================
+            mostrarToast('Excel descargado correctamente.', 'success');
+        }
