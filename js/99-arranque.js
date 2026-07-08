@@ -90,6 +90,35 @@
             return ordenarItemsCalendarioPorColor(items);
         };
 
+        construirDetalleDiaCalendarioHTML = function(fechaISO) {
+            const eventos = obtenerEventosCalendarioPorFecha(fechaISO);
+            const orden = ['Ausencias', 'Guardias', 'Registro diario', 'Notas'];
+            if(eventos.length === 0) {
+                return `<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">Sin datos cargados para esta fecha.</div>`;
+            }
+
+            return orden.map((categoria, index) => {
+                const items = ordenarItemsCalendarioPorColor(eventos.filter(ev => ev.categoria === categoria));
+                if(items.length === 0) return '';
+                const abrir = categoria === 'Guardias' || categoria === 'Notas' || items.length <= 2 || index === 0;
+                const contenidoCategoria = categoria === 'Guardias'
+                    ? construirCuadranteGuardiasCalendarioHTML(fechaISO)
+                    : `<div class="divide-y divide-slate-100">${items.map(ev => construirItemDetalleCalendario(ev)).join('')}</div>`;
+
+                return `
+                    <details class="mb-1.5 last:mb-0 rounded-md border border-slate-200 bg-white overflow-hidden" ${abrir ? 'open' : ''}>
+                        <summary class="cursor-pointer select-none px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between gap-3">
+                            <span class="text-[11px] font-black uppercase tracking-wide text-slate-600">${categoria}</span>
+                            <span class="text-[10px] font-bold text-slate-400">${items.length}</span>
+                        </summary>
+                        <div class="p-2">
+                            ${contenidoCategoria}
+                        </div>
+                    </details>
+                `;
+            }).join('');
+        };
+
         function instalarOpcionesAusencia() {
             const select = document.getElementById('ausencia_tipo');
             if(!select) return;
