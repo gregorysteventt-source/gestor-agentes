@@ -48,8 +48,18 @@
             return 'bg-slate-50 text-slate-700 border-slate-100';
         }
 
+        function formatearHorarioIdentificacionesPlanificador(horario = '') {
+            const limpio = String(horario || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if(!limpio) return '';
+            if(/\bhs\.?$/i.test(limpio)) return limpio.replace(/\bhs\.?$/i, 'hs');
+            if(/\bh\.?$/i.test(limpio)) return limpio.replace(/\bh\.?$/i, 'hs');
+            return `${limpio} hs`;
+        }
+
         function obtenerHorarioBaseIdentificaciones(turno = '') {
-            return HORARIOS_IDENTIFICACIONES_PLANIFICADOR[turno] || obtenerHorarioPorTurnoRegistroDiario(turno) || '';
+            return formatearHorarioIdentificacionesPlanificador(HORARIOS_IDENTIFICACIONES_PLANIFICADOR[turno] || obtenerHorarioPorTurnoRegistroDiario(turno) || '');
         }
 
         function limpiarSucursalHorarioPlanificador(sucursal = '') {
@@ -63,12 +73,12 @@
             const texto = String(row.sucursal || '');
             const match = texto.match(/\[HORARIO:([^\]]+)\]/);
             const horarioGuardado = match ? match[1].trim() : '';
-            return horarioGuardado || obtenerHorarioBaseIdentificaciones(row.turno || '');
+            return formatearHorarioIdentificacionesPlanificador(horarioGuardado || obtenerHorarioBaseIdentificaciones(row.turno || ''));
         }
 
         function construirSucursalIdentificacionesConHorario(sucursalBase = '', horario = '') {
             const base = limpiarSucursalHorarioPlanificador(sucursalBase) || 'Dpto de Identificaciones';
-            const horarioLimpio = String(horario || '').trim();
+            const horarioLimpio = formatearHorarioIdentificacionesPlanificador(horario);
             return horarioLimpio ? `${base} [HORARIO:${horarioLimpio}]` : base;
         }
 
@@ -78,7 +88,7 @@
 
         function leerHorarioIdentificacionDesdePantalla(fecha, turno) {
             const input = document.getElementById(obtenerIdHorarioIdentificacion(fecha, turno));
-            return (input?.value || '').trim() || obtenerHorarioBaseIdentificaciones(turno);
+            return formatearHorarioIdentificacionesPlanificador(input?.value || obtenerHorarioBaseIdentificaciones(turno));
         }
 
         obtenerEventosCalendarioPorFecha = function(fechaISO) {
@@ -196,7 +206,7 @@
                 const fecha = parts[1];
                 const idHorario = obtenerIdHorarioIdentificacion(fecha, turno);
                 const valorExistente = document.getElementById(idHorario)?.value;
-                const valorGuardado = seleccionesTemporales[idHorario] || valorExistente || obtenerHorarioBaseIdentificaciones(turno);
+                const valorGuardado = formatearHorarioIdentificacionesPlanificador(seleccionesTemporales[idHorario] || valorExistente || obtenerHorarioBaseIdentificaciones(turno));
 
                 th.innerHTML = '';
 
@@ -215,6 +225,10 @@
                 input.addEventListener('input', (e) => {
                     seleccionesTemporales[e.target.id] = e.target.value;
                 });
+                input.addEventListener('blur', (e) => {
+                    e.target.value = formatearHorarioIdentificacionesPlanificador(e.target.value || e.target.placeholder);
+                    seleccionesTemporales[e.target.id] = e.target.value;
+                });
 
                 th.appendChild(label);
                 th.appendChild(input);
@@ -227,7 +241,7 @@
                 seleccionesTemporales[select.id] = select.value;
             });
             document.querySelectorAll('.horario-ident-input').forEach(input => {
-                seleccionesTemporales[input.id] = input.value;
+                seleccionesTemporales[input.id] = formatearHorarioIdentificacionesPlanificador(input.value || input.placeholder);
             });
         };
 
