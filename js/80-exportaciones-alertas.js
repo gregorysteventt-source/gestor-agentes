@@ -24,7 +24,10 @@
                 const container = input.parentElement;
                 const textSpan = document.createElement('span');
                 textSpan.className = 'temp-text block w-full text-center text-xs font-normal text-emerald-950';
-                textSpan.innerText = input.value || input.placeholder || '';
+                const horario = input.value || input.placeholder || '';
+                textSpan.innerText = typeof formatearHorarioIdentificacionesPlanificador === 'function'
+                    ? formatearHorarioIdentificacionesPlanificador(horario)
+                    : horario;
                 input.classList.add('hidden');
                 container.appendChild(textSpan);
             });
