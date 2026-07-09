@@ -508,6 +508,79 @@
             btnNuevo.addEventListener('click', guardarPlanificadorConHorariosEspeciales);
         }
 
+        function obtenerFechaSugeridaJornadaDiaria() {
+            const filtroUnico = typeof obtenerFechaUnicaFiltroCoberturaDiaria === 'function'
+                ? obtenerFechaUnicaFiltroCoberturaDiaria()
+                : '';
+            return filtroUnico || document.getElementById('cobertura_fecha')?.value || obtenerFechaActualISO();
+        }
+
+        function instalarFlujoJornadaDiaria() {
+            const btnNormal = document.getElementById('btnGenerarCoberturaNormalDia');
+            if(!btnNormal || btnNormal.dataset.jornadaDiaria === '1') return;
+
+            const contenedorBotones = btnNormal.parentElement;
+            const tarjetaAcciones = btnNormal.closest('.bg-white.border');
+            const titulo = tarjetaAcciones?.querySelector('h3');
+            if(titulo) titulo.textContent = 'Registrar jornada diaria';
+
+            const btnAvanzado = Array.from(contenedorBotones?.querySelectorAll('button') || [])
+                .find(btn => btn.getAttribute('onclick') === 'toggleRegistroAvanzadoDiario()');
+            if(btnAvanzado) btnAvanzado.remove();
+
+            const grupoFecha = document.createElement('label');
+            grupoFecha.className = 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-xs font-bold text-emerald-800 shadow-sm';
+            grupoFecha.innerHTML = `
+                <span class="whitespace-nowrap">Fecha</span>
+                <input type="date" id="fechaGenerarJornadaDiaria" class="w-36 border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0">
+            `;
+
+            const fechaJornada = grupoFecha.querySelector('#fechaGenerarJornadaDiaria');
+            fechaJornada.value = obtenerFechaSugeridaJornadaDiaria();
+            fechaJornada.addEventListener('change', () => {
+                const fechaCobertura = document.getElementById('cobertura_fecha');
+                if(fechaCobertura) fechaCobertura.value = fechaJornada.value || obtenerFechaActualISO();
+            });
+
+            btnNormal.dataset.jornadaDiaria = '1';
+            btnNormal.innerText = 'Generar jornada diaria';
+            btnNormal.title = 'Crea los registros habituales de la fecha elegida';
+            btnNormal.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg transition text-xs border border-emerald-700 shadow-sm';
+            contenedorBotones?.insertBefore(grupoFecha, btnNormal);
+
+            if(typeof armarMensajeVistaPreviaCoberturaNormal === 'function') {
+                armarMensajeVistaPreviaCoberturaNormal = function(fecha, registrosAInsertar, omitidos, conflictosDetectados) {
+                    const lineasNuevos = registrosAInsertar.map(reg =>
+                        `• ${reg.area} | ${obtenerNombreAgentePorId(reg.agente_titular_id)} | ${reg.horario_afectado} | ${reg.estado_cobertura}`
+                    );
+                    const lineasConflictos = conflictosDetectados.map(item =>
+                        `• ${item.area} | ${item.agente} | ${item.horario}: ${item.conflictos.join(' ')}`
+                    );
+
+                    return `Vista previa para generar la jornada diaria:\n\n` +
+                        `Fecha: ${formatearFechaSimple(fecha)}\n` +
+                        `Registros nuevos: ${registrosAInsertar.length}\n` +
+                        `Ya existentes que se omiten: ${omitidos}\n` +
+                        `Para revisar: ${conflictosDetectados.length}\n\n` +
+                        `Registros a crear:\n${resumirLineasVistaPrevia(lineasNuevos)}\n` +
+                        (lineasConflictos.length ? `\nPara revisar:\n${resumirLineasVistaPrevia(lineasConflictos, 6)}\n` : '') +
+                        `\nLos registros con conflicto quedarán como FALTA CUBRIR para que los edites desde el historial.\n\n¿Querés continuar?`;
+                };
+            }
+
+            const generarOriginal = window.generarCoberturaNormalDelDia;
+            if(typeof generarOriginal === 'function') {
+                window.generarCoberturaNormalDelDia = async function() {
+                    const fechaElegida = document.getElementById('fechaGenerarJornadaDiaria')?.value || obtenerFechaActualISO();
+                    const fechaCobertura = document.getElementById('cobertura_fecha');
+                    if(fechaCobertura) fechaCobertura.value = fechaElegida;
+                    await generarOriginal();
+                    const btn = document.getElementById('btnGenerarCoberturaNormalDia');
+                    if(btn && !btn.disabled) btn.innerText = 'Generar jornada diaria';
+                };
+            }
+        }
+
         function instalarOpcionesAusencia() {
             const select = document.getElementById('ausencia_tipo');
             if(!select) return;
@@ -566,6 +639,7 @@
 
         instalarOpcionesAusencia();
         instalarGuardadoPlanificadorConHorarios();
+        instalarFlujoJornadaDiaria();
         instalarIconoPestanaGestor();
 
         // Disparar inicialización general
