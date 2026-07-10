@@ -416,6 +416,35 @@
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
         }
 
+        #modalCalendarioContenido button[onclick^="editarNotaCalendario"],
+        #modalCalendarioContenido button[onclick^="eliminarNotaCalendario"] {
+            width: 1.8rem !important;
+            height: 1.8rem !important;
+            min-width: 1.8rem !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 0.55rem !important;
+            font-size: 0 !important;
+            line-height: 1 !important;
+        }
+
+        #modalCalendarioContenido button[onclick^="editarNotaCalendario"]::before,
+        #modalCalendarioContenido button[onclick^="eliminarNotaCalendario"]::before {
+            font-size: 0.95rem;
+            line-height: 1;
+        }
+
+        #modalCalendarioContenido button[onclick^="editarNotaCalendario"]::before {
+            content: "✎";
+        }
+
+        #modalCalendarioContenido button[onclick^="eliminarNotaCalendario"]::before {
+            content: "🗑";
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 640px) {
             #tab-cuadrante > div:first-child > div:first-child,
             #tab-novedades > div > div:first-child,
