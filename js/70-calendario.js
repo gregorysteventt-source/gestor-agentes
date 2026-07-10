@@ -211,6 +211,26 @@
             return nombres.map(nombre => `<div class="font-bold text-slate-800">${escaparHTML(nombre)}</div>`).join('');
         }
 
+        function construirNombresSimplesTurnoCalendario(fechaISO, area, turno) {
+            const nombres = obtenerTurnosPorAreaYTurnoCalendario(fechaISO, area, turno)
+                .map(item => obtenerNombreAgentePorId(item.agente_id))
+                .filter(nombre => nombre && nombre !== '-');
+
+            if(nombres.length === 0) {
+                return '<span class="text-slate-400 italic">Sin asignar</span>';
+            }
+
+            return nombres.map(nombre => `<div class="font-bold text-slate-800">${escaparHTML(nombre)}</div>`).join('');
+        }
+
+        function obtenerHorarioEncabezadoTurnoCalendario(fechaISO, area, turno, horarioBase) {
+            const turnoGuardado = obtenerTurnosPorAreaYTurnoCalendario(fechaISO, area, turno)[0];
+            if(turnoGuardado && typeof obtenerHorarioPersonalizadoPlanificador === 'function') {
+                return obtenerHorarioPersonalizadoPlanificador(turnoGuardado) || horarioBase;
+            }
+            return horarioBase;
+        }
+
         function construirCuadranteGuardiasCalendarioHTML(fechaISO) {
             const turnosFecha = obtenerTurnosCalendarioPorFecha(fechaISO);
             if(turnosFecha.length === 0) {
@@ -221,6 +241,8 @@
             const hayCallCenter = turnosFecha.some(item => !esRegistroIdentificaciones(item));
             const hayIdentificaciones = turnosFecha.some(item => esRegistroIdentificaciones(item));
             const bloques = [];
+            const horarioIdentManana = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Identificaciones', 'Mañana', '07:00 a 12:00 hs');
+            const horarioIdentTarde = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Identificaciones', 'Tarde', '12:00 a 17:00 hs');
 
             if(hayCallCenter) {
                 bloques.push(`
@@ -260,15 +282,15 @@
                             <thead>
                                 <tr class="excel-sub font-semibold text-center">
                                     <th class="border border-slate-300 p-2 w-1/3">Horario</th>
-                                    <th class="border border-slate-300 p-2 w-1/3">Turno Mañana<br><span class="text-[10px] font-normal">07:00 a 12:00 hs</span></th>
-                                    <th class="border border-slate-300 p-2 w-1/3">Turno Tarde<br><span class="text-[10px] font-normal">12:00 a 17:00 hs</span></th>
+                                    <th class="border border-slate-300 p-2 w-1/3">Turno Mañana<br><span class="text-[10px] font-normal">${escaparHTML(horarioIdentManana)}</span></th>
+                                    <th class="border border-slate-300 p-2 w-1/3">Turno Tarde<br><span class="text-[10px] font-normal">${escaparHTML(horarioIdentTarde)}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td class="border border-slate-300 p-2 font-bold text-center bg-slate-50">${escaparHTML(labelFecha)}</td>
-                                    <td class="border border-slate-300 p-2 text-center">${construirNombresTurnoCalendario(fechaISO, 'Identificaciones', 'Mañana')}</td>
-                                    <td class="border border-slate-300 p-2 text-center">${construirNombresTurnoCalendario(fechaISO, 'Identificaciones', 'Tarde')}</td>
+                                    <td class="border border-slate-300 p-2 text-center">${construirNombresSimplesTurnoCalendario(fechaISO, 'Identificaciones', 'Mañana')}</td>
+                                    <td class="border border-slate-300 p-2 text-center">${construirNombresSimplesTurnoCalendario(fechaISO, 'Identificaciones', 'Tarde')}</td>
                                 </tr>
                             </tbody>
                         </table>
