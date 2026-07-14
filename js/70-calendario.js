@@ -226,7 +226,7 @@
         function obtenerHorarioEncabezadoTurnoCalendario(fechaISO, area, turno, horarioBase) {
             const turnoGuardado = obtenerTurnosPorAreaYTurnoCalendario(fechaISO, area, turno)[0];
             if(turnoGuardado && typeof obtenerHorarioPersonalizadoPlanificador === 'function') {
-                return obtenerHorarioPersonalizadoPlanificador(turnoGuardado) || horarioBase;
+                return obtenerHorarioPersonalizadoPlanificador(turnoGuardado, area) || horarioBase;
             }
             return horarioBase;
         }
@@ -241,6 +241,9 @@
             const hayCallCenter = turnosFecha.some(item => !esRegistroIdentificaciones(item));
             const hayIdentificaciones = turnosFecha.some(item => esRegistroIdentificaciones(item));
             const bloques = [];
+            const horarioCcManana = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Call Center', 'Mañana', '07:00 a 12:00 hs');
+            const horarioCcTarde = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Call Center', 'Tarde', '12:00 a 17:00 hs');
+            const horarioCcNoche = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Call Center', 'Noche', '17:00 a 22:00 hs');
             const horarioIdentManana = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Identificaciones', 'Mañana', '07:00 a 12:00 hs');
             const horarioIdentTarde = obtenerHorarioEncabezadoTurnoCalendario(fechaISO, 'Identificaciones', 'Tarde', '12:00 a 17:00 hs');
 
@@ -254,17 +257,17 @@
                             <thead>
                                 <tr class="excel-sub font-semibold text-center">
                                     <th class="border border-slate-300 p-2 w-1/4">Horario</th>
-                                    <th class="border border-slate-300 p-2 w-1/4">Turno Mañana<br><span class="text-[10px] font-normal">07:00 a 12:00 hs</span></th>
-                                    <th class="border border-slate-300 p-2 w-1/4">Turno Tarde<br><span class="text-[10px] font-normal">12:00 a 17:00 hs</span></th>
-                                    <th class="border border-slate-300 p-2 w-1/4">Turno Noche<br><span class="text-[10px] font-normal">17:00 a 22:00 hs</span></th>
+                                    <th class="border border-slate-300 p-2 w-1/4">Turno Mañana<br><span class="text-[10px] font-normal">${escaparHTML(horarioCcManana)}</span></th>
+                                    <th class="border border-slate-300 p-2 w-1/4">Turno Tarde<br><span class="text-[10px] font-normal">${escaparHTML(horarioCcTarde)}</span></th>
+                                    <th class="border border-slate-300 p-2 w-1/4">Turno Noche<br><span class="text-[10px] font-normal">${escaparHTML(horarioCcNoche)}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td class="border border-slate-300 p-2 font-bold text-center bg-slate-50">${escaparHTML(labelFecha)}</td>
-                                    <td class="border border-slate-300 p-2 text-center">${construirNombresTurnoCalendario(fechaISO, 'Call Center', 'Mañana')}</td>
-                                    <td class="border border-slate-300 p-2 text-center">${construirNombresTurnoCalendario(fechaISO, 'Call Center', 'Tarde')}</td>
-                                    <td class="border border-slate-300 p-2 text-center">${construirNombresTurnoCalendario(fechaISO, 'Call Center', 'Noche')}</td>
+                                    <td class="border border-slate-300 p-2 text-center">${construirNombresSimplesTurnoCalendario(fechaISO, 'Call Center', 'Mañana')}</td>
+                                    <td class="border border-slate-300 p-2 text-center">${construirNombresSimplesTurnoCalendario(fechaISO, 'Call Center', 'Tarde')}</td>
+                                    <td class="border border-slate-300 p-2 text-center">${construirNombresSimplesTurnoCalendario(fechaISO, 'Call Center', 'Noche')}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -427,8 +430,8 @@
             const detalle = escaparHTML(ev.detalle || '').replace(/\n/g, '<span class="mx-1 text-slate-300">|</span>');
             const accionesNota = ev.tipo === 'nota' && ev.nota ? `
                 <div class="flex shrink-0 gap-1">
-                    <button type="button" onclick="editarNotaCalendario(${ev.nota.id})" class="bg-white hover:bg-slate-50 border text-slate-700 font-bold px-2 py-0.5 rounded text-[10px] transition">Editar</button>
-                    <button type="button" onclick="eliminarNotaCalendario(${ev.nota.id})" class="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold px-2 py-0.5 rounded text-[10px] transition">Eliminar</button>
+                    <button type="button" onclick="editarNotaCalendario(${ev.nota.id})" class="calendar-note-action" title="Editar nota" aria-label="Editar nota">✎</button>
+                    <button type="button" onclick="eliminarNotaCalendario(${ev.nota.id})" class="calendar-note-action calendar-note-action-danger" title="Eliminar nota" aria-label="Eliminar nota">🗑</button>
                 </div>
             ` : '';
 
