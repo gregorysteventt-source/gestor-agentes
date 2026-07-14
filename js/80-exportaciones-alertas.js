@@ -20,14 +20,16 @@
                 container.appendChild(textSpan);
             });
 
-            document.querySelectorAll('.horario-ident-input').forEach(input => {
+            document.querySelectorAll('.horario-planificador-input').forEach(input => {
                 const container = input.parentElement;
                 const textSpan = document.createElement('span');
                 textSpan.className = 'temp-text block w-full text-center text-xs font-normal text-emerald-950';
                 const horario = input.value || input.placeholder || '';
-                textSpan.innerText = typeof formatearHorarioIdentificacionesPlanificador === 'function'
-                    ? formatearHorarioIdentificacionesPlanificador(horario)
-                    : horario;
+                textSpan.innerText = typeof formatearHorarioPlanificador === 'function'
+                    ? formatearHorarioPlanificador(horario)
+                    : (typeof formatearHorarioIdentificacionesPlanificador === 'function'
+                        ? formatearHorarioIdentificacionesPlanificador(horario)
+                        : horario);
                 input.classList.add('hidden');
                 container.appendChild(textSpan);
             });
@@ -49,7 +51,7 @@
                 }).finally(() => {
                     document.querySelectorAll('.temp-text').forEach(span => span.remove());
                     document.querySelectorAll('.agente-select').forEach(select => select.classList.remove('hidden'));
-                    document.querySelectorAll('.horario-ident-input').forEach(input => input.classList.remove('hidden'));
+                    document.querySelectorAll('.horario-planificador-input').forEach(input => input.classList.remove('hidden'));
                     document.querySelectorAll('.no-captura-whatsapp').forEach(el => el.classList.remove('hidden'));
                     btn.innerText = "📸 Descargar para WhatsApp";
                     btn.disabled = false;
