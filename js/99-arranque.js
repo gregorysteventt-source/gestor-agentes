@@ -4,11 +4,21 @@
         // No cambia datos ni consultas; solo modifica la clase visual de los eventos ya generados.
         const obtenerEventosCalendarioPorFechaOriginal = obtenerEventosCalendarioPorFecha;
 
-        const HORARIOS_IDENTIFICACIONES_PLANIFICADOR = {
-            'Mañana': '07:00 a 12:00',
-            'Tarde': '12:00 a 17:00'
+        const HORARIOS_PLANIFICADOR = {
+            'Call Center': {
+                'Mañana': '07:00 a 12:00',
+                'Tarde': '12:00 a 17:00',
+                'Noche': '17:00 a 22:00'
+            },
+            'Identificaciones': {
+                'Mañana': '07:00 a 12:00',
+                'Tarde': '12:00 a 17:00'
+            }
         };
-        const MARCA_HORARIO_IDENTIFICACIONES = '[HORARIO:';
+        const HORARIOS_CALL_CENTER_PLANIFICADOR = HORARIOS_PLANIFICADOR['Call Center'];
+        const HORARIOS_IDENTIFICACIONES_PLANIFICADOR = HORARIOS_PLANIFICADOR['Identificaciones'];
+        const MARCA_HORARIO_PLANIFICADOR = '[HORARIO:';
+        const MARCA_HORARIO_IDENTIFICACIONES = MARCA_HORARIO_PLANIFICADOR;
 
         function normalizarTipoAusenciaCalendario(tipo = '') {
             return String(tipo || '')
@@ -48,7 +58,16 @@
             return 'bg-slate-50 text-slate-700 border-slate-100';
         }
 
-        function formatearHorarioIdentificacionesPlanificador(horario = '') {
+        function normalizarAreaPlanificador(area = '') {
+            return String(area || '').toLowerCase().includes('ident') ? 'Identificaciones' : 'Call Center';
+        }
+
+        function obtenerAreaPlanificadorDesdeFila(row = {}, areaFallback = '') {
+            if(areaFallback) return normalizarAreaPlanificador(areaFallback);
+            return esRegistroIdentificaciones(row) ? 'Identificaciones' : 'Call Center';
+        }
+
+        function formatearHorarioPlanificador(horario = '') {
             const limpio = String(horario || '')
                 .replace(/\s+/g, ' ')
                 .trim();
@@ -58,8 +77,18 @@
             return `${limpio} hs`;
         }
 
+        function formatearHorarioIdentificacionesPlanificador(horario = '') {
+            return formatearHorarioPlanificador(horario);
+        }
+
+        function obtenerHorarioBasePlanificador(area = '', turno = '') {
+            const areaNormalizada = normalizarAreaPlanificador(area);
+            const horarioBase = HORARIOS_PLANIFICADOR[areaNormalizada]?.[turno] || obtenerHorarioPorTurnoRegistroDiario(turno) || '';
+            return formatearHorarioPlanificador(horarioBase);
+        }
+
         function obtenerHorarioBaseIdentificaciones(turno = '') {
-            return formatearHorarioIdentificacionesPlanificador(HORARIOS_IDENTIFICACIONES_PLANIFICADOR[turno] || obtenerHorarioPorTurnoRegistroDiario(turno) || '');
+            return obtenerHorarioBasePlanificador('Identificaciones', turno);
         }
 
         function limpiarSucursalHorarioPlanificador(sucursal = '') {
@@ -69,26 +98,45 @@
                 .trim();
         }
 
-        function obtenerHorarioPersonalizadoPlanificador(row = {}) {
+        function obtenerHorarioPersonalizadoPlanificador(row = {}, areaFallback = '') {
             const texto = String(row.sucursal || '');
             const match = texto.match(/\[HORARIO:([^\]]+)\]/);
             const horarioGuardado = match ? match[1].trim() : '';
-            return formatearHorarioIdentificacionesPlanificador(horarioGuardado || obtenerHorarioBaseIdentificaciones(row.turno || ''));
+            const area = obtenerAreaPlanificadorDesdeFila(row, areaFallback);
+            return formatearHorarioPlanificador(horarioGuardado || obtenerHorarioBasePlanificador(area, row.turno || ''));
+        }
+
+        function construirSucursalConHorario(sucursalBase = '', horario = '') {
+            const base = limpiarSucursalHorarioPlanificador(sucursalBase) || 'Call Center';
+            const horarioLimpio = formatearHorarioPlanificador(horario);
+            return horarioLimpio ? `${base} [HORARIO:${horarioLimpio}]` : base;
         }
 
         function construirSucursalIdentificacionesConHorario(sucursalBase = '', horario = '') {
             const base = limpiarSucursalHorarioPlanificador(sucursalBase) || 'Dpto de Identificaciones';
-            const horarioLimpio = formatearHorarioIdentificacionesPlanificador(horario);
-            return horarioLimpio ? `${base} [HORARIO:${horarioLimpio}]` : base;
+            return construirSucursalConHorario(base, horario);
+        }
+
+        function obtenerSlugAreaHorarioPlanificador(area = '') {
+            return normalizarAreaPlanificador(area) === 'Identificaciones' ? 'ident' : 'cc';
+        }
+
+        function obtenerIdHorarioPlanificador(area, fecha, turno) {
+            const slug = obtenerSlugAreaHorarioPlanificador(area);
+            return slug === 'ident' ? `horario_ident_${fecha}_${turno}` : `horario_cc_${turno}`;
         }
 
         function obtenerIdHorarioIdentificacion(fecha, turno) {
-            return `horario_ident_${fecha}_${turno}`;
+            return obtenerIdHorarioPlanificador('Identificaciones', fecha, turno);
+        }
+
+        function leerHorarioPlanificadorDesdePantalla(area, fecha, turno) {
+            const input = document.getElementById(obtenerIdHorarioPlanificador(area, fecha, turno));
+            return formatearHorarioPlanificador(input?.value || obtenerHorarioBasePlanificador(area, turno));
         }
 
         function leerHorarioIdentificacionDesdePantalla(fecha, turno) {
-            const input = document.getElementById(obtenerIdHorarioIdentificacion(fecha, turno));
-            return formatearHorarioIdentificacionesPlanificador(input?.value || obtenerHorarioBaseIdentificaciones(turno));
+            return leerHorarioPlanificadorDesdePantalla('Identificaciones', fecha, turno);
         }
 
         obtenerEventosCalendarioPorFecha = function(fechaISO) {
@@ -100,11 +148,12 @@
                         turno.fecha === fechaISO &&
                         obtenerNombreAgentePorId(turno.agente_id) === evento.etiqueta
                     );
-                    if(turnoRelacionado && esRegistroIdentificaciones(turnoRelacionado)) {
-                        const horario = obtenerHorarioPersonalizadoPlanificador(turnoRelacionado);
+                    if(turnoRelacionado) {
+                        const area = esRegistroIdentificaciones(turnoRelacionado) ? 'Identificaciones' : 'Call Center';
+                        const horario = obtenerHorarioPersonalizadoPlanificador(turnoRelacionado, area);
                         return {
                             ...evento,
-                            detalle: `Turno: ${turnoRelacionado.turno || '-'}\nHorario: ${horario || '-'}\nArea: Identificaciones`
+                            detalle: `Turno: ${turnoRelacionado.turno || '-'}\nHorario: ${horario || '-'}\nArea: ${area}`
                         };
                     }
                 }
@@ -185,28 +234,48 @@
         const renderizarTablasPlanificacionOriginal = renderizarTablasPlanificacion;
         renderizarTablasPlanificacion = function() {
             renderizarTablasPlanificacionOriginal();
-            agregarControlesHorarioIdentificaciones();
+            agregarControlesHorarioPlanificador();
         };
 
         function agregarControlesHorarioIdentificaciones() {
-            const tablaIdent = document.getElementById('tbody-ident')?.closest('table');
-            if(!tablaIdent) return;
+            agregarControlesHorarioPlanificador();
+        }
 
-            document.querySelectorAll('#tbody-ident .horario-ident-input').forEach(input => input.remove());
+        function agregarControlesHorarioPlanificador() {
+            document.querySelectorAll('.horario-planificador-input').forEach(input => input.remove());
 
-            const headers = tablaIdent.querySelectorAll('thead th');
-            const turnos = ['Mañana', 'Tarde'];
+            agregarControlesHorarioEnTabla({
+                tbodyId: 'tbody-cc',
+                area: 'Call Center',
+                selectPrefix: 'cc',
+                turnos: ['Mañana', 'Tarde', 'Noche']
+            });
+
+            agregarControlesHorarioEnTabla({
+                tbodyId: 'tbody-ident',
+                area: 'Identificaciones',
+                selectPrefix: 'ident',
+                turnos: ['Mañana', 'Tarde']
+            });
+        }
+
+        function agregarControlesHorarioEnTabla({ tbodyId, area, selectPrefix, turnos }) {
+            const tabla = document.getElementById(tbodyId)?.closest('table');
+            if(!tabla) return;
+
+            const headers = tabla.querySelectorAll('thead th');
+            const esIdent = normalizarAreaPlanificador(area) === 'Identificaciones';
 
             turnos.forEach((turno, index) => {
-                const select = document.querySelector(`select[id^="ident_"][id$="_${turno}"]`);
+                const select = document.querySelector(`select[id^="${selectPrefix}_"][id$="_${turno}"]`);
                 const th = headers[index + 1];
                 if(!select || !th) return;
 
                 const parts = select.id.split('_');
                 const fecha = parts[1];
-                const idHorario = obtenerIdHorarioIdentificacion(fecha, turno);
+                const idHorario = obtenerIdHorarioPlanificador(area, fecha, turno);
                 const valorExistente = document.getElementById(idHorario)?.value;
-                const valorGuardado = formatearHorarioIdentificacionesPlanificador(seleccionesTemporales[idHorario] || valorExistente || obtenerHorarioBaseIdentificaciones(turno));
+                const valorGuardado = formatearHorarioPlanificador(seleccionesTemporales[idHorario] || valorExistente || obtenerHorarioBasePlanificador(area, turno));
 
                 th.innerHTML = '';
 
@@ -218,15 +287,15 @@
                 input.type = 'text';
                 input.id = idHorario;
                 input.value = valorGuardado;
-                input.placeholder = obtenerHorarioBaseIdentificaciones(turno);
+                input.placeholder = obtenerHorarioBasePlanificador(area, turno);
                 input.title = 'Horario real de cobertura';
-                input.setAttribute('aria-label', `Horario ${turno} Identificaciones`);
-                input.className = 'horario-ident-input mt-1 w-36 max-w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-center text-xs font-normal text-emerald-950 outline-none transition hover:border-emerald-300 hover:bg-white/50 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-200';
+                input.setAttribute('aria-label', `Horario ${turno} ${area}`);
+                input.className = `horario-planificador-input ${esIdent ? 'horario-ident-input' : 'horario-cc-input'} mt-1 w-36 max-w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-center text-xs font-normal text-emerald-950 outline-none transition hover:border-emerald-300 hover:bg-white/50 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-200`;
                 input.addEventListener('input', (e) => {
                     seleccionesTemporales[e.target.id] = e.target.value;
                 });
                 input.addEventListener('blur', (e) => {
-                    e.target.value = formatearHorarioIdentificacionesPlanificador(e.target.value || e.target.placeholder);
+                    e.target.value = formatearHorarioPlanificador(e.target.value || e.target.placeholder);
                     seleccionesTemporales[e.target.id] = e.target.value;
                 });
 
@@ -240,8 +309,8 @@
             document.querySelectorAll('.agente-select').forEach(select => {
                 seleccionesTemporales[select.id] = select.value;
             });
-            document.querySelectorAll('.horario-ident-input').forEach(input => {
-                seleccionesTemporales[input.id] = formatearHorarioIdentificacionesPlanificador(input.value || input.placeholder);
+            document.querySelectorAll('.horario-planificador-input').forEach(input => {
+                seleccionesTemporales[input.id] = formatearHorarioPlanificador(input.value || input.placeholder);
             });
         };
 
@@ -259,10 +328,11 @@
 
             if(error || !data) return;
 
-            data.filter(esRegistroIdentificaciones).forEach(turno => {
-                const input = document.getElementById(obtenerIdHorarioIdentificacion(turno.fecha, turno.turno));
+            data.forEach(turno => {
+                const area = esRegistroIdentificaciones(turno) ? 'Identificaciones' : 'Call Center';
+                const input = document.getElementById(obtenerIdHorarioPlanificador(area, turno.fecha, turno.turno));
                 if(!input) return;
-                const horario = obtenerHorarioPersonalizadoPlanificador(turno);
+                const horario = obtenerHorarioPersonalizadoPlanificador(turno, area);
                 input.value = horario;
                 seleccionesTemporales[input.id] = horario;
             });
@@ -278,7 +348,7 @@
 
             return items.map(item => {
                 const nombre = obtenerNombreAgentePorId(item.agente_id);
-                const horario = esRegistroIdentificaciones(item) ? obtenerHorarioPersonalizadoPlanificador(item) : '';
+                const horario = esRegistroIdentificaciones(item) ? obtenerHorarioPersonalizadoPlanificador(item, 'Identificaciones') : '';
                 return `
                     <div class="font-bold text-slate-800">${escaparHTML(nombre)}</div>
                     ${horario ? `<div class="text-[10px] font-semibold text-slate-500">${escaparHTML(horario)}</div>` : ''}
@@ -326,7 +396,7 @@
             const conflictos = [];
 
             filasIdentificacionesSabado.forEach(row => {
-                const horarioPersonalizado = obtenerHorarioPersonalizadoPlanificador(row);
+                const horarioPersonalizado = obtenerHorarioPersonalizadoPlanificador(row, 'Identificaciones');
                 const registro = {
                     fecha: row.fecha,
                     area: 'Identificaciones',
@@ -424,12 +494,13 @@
                     const selectEl = document.getElementById(`cc_${dia.fecha}_${turno}`);
                     const agenteId = selectEl ? selectEl.value : '';
                     if(agenteId) {
+                        const horario = leerHorarioPlanificadorDesdePantalla('Call Center', dia.fecha, turno);
                         filasAInsertar.push({
                             fecha: dia.fecha,
                             turno,
                             agente_id: parseInt(agenteId),
                             modalidad: 'Contact Center',
-                            sucursal: null
+                            sucursal: construirSucursalConHorario('Call Center', horario)
                         });
                     }
                 });
