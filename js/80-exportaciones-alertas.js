@@ -282,15 +282,15 @@
         // 15.1) AJUSTES TEMPORALES DE INTERFAZ Y NOTAS DEL CALENDARIO
         // ============================================================
         const COLORES_NOTAS_CALENDARIO = [
-            { id: 'violeta', nombre: 'Violeta', clase: 'bg-violet-50 text-violet-700 border-violet-100', punto: 'bg-violet-500' },
-            { id: 'azul', nombre: 'Azul', clase: 'bg-blue-50 text-blue-700 border-blue-100', punto: 'bg-blue-500' },
-            { id: 'celeste', nombre: 'Celeste', clase: 'bg-sky-50 text-sky-700 border-sky-100', punto: 'bg-sky-500' },
-            { id: 'verde', nombre: 'Verde', clase: 'bg-emerald-50 text-emerald-700 border-emerald-100', punto: 'bg-emerald-500' },
-            { id: 'amarillo', nombre: 'Amarillo', clase: 'bg-amber-50 text-amber-700 border-amber-100', punto: 'bg-amber-500' },
-            { id: 'naranja', nombre: 'Naranja', clase: 'bg-orange-50 text-orange-700 border-orange-100', punto: 'bg-orange-500' },
-            { id: 'rojo', nombre: 'Rojo', clase: 'bg-rose-50 text-rose-700 border-rose-100', punto: 'bg-rose-500' },
-            { id: 'fucsia', nombre: 'Fucsia', clase: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100', punto: 'bg-fuchsia-500' },
-            { id: 'gris', nombre: 'Gris', clase: 'bg-slate-50 text-slate-700 border-slate-100', punto: 'bg-slate-500' }
+            { id: 'violeta', nombre: 'Violeta', clase: 'bg-violet-600 text-white border-violet-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'azul', nombre: 'Azul', clase: 'bg-blue-600 text-white border-blue-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'celeste', nombre: 'Celeste', clase: 'bg-cyan-500 text-white border-cyan-600 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'verde', nombre: 'Verde', clase: 'bg-emerald-600 text-white border-emerald-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'amarillo', nombre: 'Amarillo', clase: 'bg-yellow-400 text-yellow-950 border-yellow-500 shadow-sm', punto: 'bg-yellow-950' },
+            { id: 'naranja', nombre: 'Naranja', clase: 'bg-orange-500 text-white border-orange-600 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'rojo', nombre: 'Rojo', clase: 'bg-red-600 text-white border-red-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'fucsia', nombre: 'Fucsia', clase: 'bg-fuchsia-600 text-white border-fuchsia-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
+            { id: 'gris', nombre: 'Gris', clase: 'bg-slate-600 text-white border-slate-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' }
         ];
 
         obtenerClaseNotaCalendario = function(color = 'violeta') {
@@ -311,7 +311,7 @@
                         </div>
                         <div class="p-4 grid grid-cols-2 sm:grid-cols-3 gap-2" id="selectorColorNotaOpciones">
                             ${COLORES_NOTAS_CALENDARIO.map(opcion => `
-                                <button type="button" data-color="${opcion.id}" class="color-nota-opcion border ${opcion.clase} rounded-xl px-3 py-2 text-xs font-black flex items-center gap-2 hover:shadow transition ${opcion.id === colorSeleccionado ? 'ring-2 ring-slate-900' : ''}">
+                                <button type="button" data-color="${opcion.id}" class="color-nota-opcion border ${opcion.clase} rounded-xl px-3 py-2 text-xs font-black flex items-center gap-2 hover:scale-[1.02] transition ${opcion.id === colorSeleccionado ? 'ring-2 ring-slate-900 ring-offset-2' : ''}">
                                     <span class="w-3 h-3 rounded-full ${opcion.punto}"></span>
                                     ${opcion.nombre}
                                 </button>
@@ -333,8 +333,8 @@
                 backdrop.querySelectorAll('[data-color]').forEach(btn => {
                     btn.addEventListener('click', () => {
                         colorSeleccionado = btn.dataset.color;
-                        backdrop.querySelectorAll('[data-color]').forEach(item => item.classList.remove('ring-2', 'ring-slate-900'));
-                        btn.classList.add('ring-2', 'ring-slate-900');
+                        backdrop.querySelectorAll('[data-color]').forEach(item => item.classList.remove('ring-2', 'ring-slate-900', 'ring-offset-2'));
+                        btn.classList.add('ring-2', 'ring-slate-900', 'ring-offset-2');
                     });
                 });
                 backdrop.querySelector('#btnCancelarColorNota')?.addEventListener('click', () => cerrar(null));
