@@ -15,6 +15,7 @@ js/30-planificador.js
 js/40-ausencias.js
 js/50-novedades.js
 js/60-diario.js
+js/65-panel-dia.js
 js/70-calendario.js
 js/80-exportaciones-alertas.js
 js/90-personal.js

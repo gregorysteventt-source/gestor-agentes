@@ -13,7 +13,6 @@
         //   icono de la pestaña ........................... 10-auth-navegacion
 
         instalarOpcionesAusencia();
-        instalarFlujoJornadaDiaria();
         instalarIconoPestanaGestor();
 
         // Arranca la autenticación. Con una sesión válida, init() carga los datos

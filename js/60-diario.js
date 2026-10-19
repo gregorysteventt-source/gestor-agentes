@@ -19,6 +19,9 @@
             coberturasDiariasEnMemoria = data || [];
             aplicarFiltroInicialCoberturasDiarias();
             renderizarTablaCoberturasDiarias();
+
+            // El panel del día se repinta con los datos recién traídos.
+            if (typeof cargarPanelDia === 'function') cargarPanelDia(obtenerFechaPanelDia());
         }
 
 
@@ -69,9 +72,6 @@
             if(!panel.classList.contains('hidden')) actualizarVistaPreviaCambioDirectoDiario();
         }
 
-        function toggleRegistroAvanzadoDiario() {
-            abrirModalCoberturaDiaria();
-        }
 
         function abrirModalCoberturaDiaria() {
             const modal = document.getElementById('modalCoberturaDiaria');
@@ -1548,47 +1548,7 @@
 
         // ============================================================
 
-        function obtenerFechaSugeridaJornadaDiaria() {
-            const filtroUnico = typeof obtenerFechaUnicaFiltroCoberturaDiaria === 'function'
-                ? obtenerFechaUnicaFiltroCoberturaDiaria()
-                : '';
-            return filtroUnico || document.getElementById('cobertura_fecha')?.value || obtenerFechaActualISO();
-        }
 
-        function instalarFlujoJornadaDiaria() {
-            const btnNormal = document.getElementById('btnGenerarCoberturaNormalDia');
-            if(!btnNormal || btnNormal.dataset.jornadaDiaria === '1') return;
-
-            const contenedorBotones = btnNormal.parentElement;
-            const tarjetaAcciones = btnNormal.closest('.bg-white.border');
-            const titulo = tarjetaAcciones?.querySelector('h3');
-            if(titulo) titulo.textContent = 'Registrar jornada diaria';
-
-            const btnAvanzado = Array.from(contenedorBotones?.querySelectorAll('button') || [])
-                .find(btn => btn.getAttribute('onclick') === 'toggleRegistroAvanzadoDiario()');
-            if(btnAvanzado) btnAvanzado.remove();
-
-            const grupoFecha = document.createElement('label');
-            grupoFecha.className = 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-xs font-bold text-emerald-800 shadow-sm';
-            grupoFecha.innerHTML = `
-                <span class="whitespace-nowrap">Fecha</span>
-                <input type="date" id="fechaGenerarJornadaDiaria" class="w-36 border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0">
-            `;
-
-            const fechaJornada = grupoFecha.querySelector('#fechaGenerarJornadaDiaria');
-            fechaJornada.value = obtenerFechaSugeridaJornadaDiaria();
-            fechaJornada.addEventListener('change', () => {
-                const fechaCobertura = document.getElementById('cobertura_fecha');
-                if(fechaCobertura) fechaCobertura.value = fechaJornada.value || obtenerFechaActualISO();
-            });
-
-            btnNormal.dataset.jornadaDiaria = '1';
-            btnNormal.innerText = 'Generar jornada diaria';
-            btnNormal.title = 'Crea los registros habituales de la fecha elegida';
-            btnNormal.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg transition text-xs border border-emerald-700 shadow-sm';
-            contenedorBotones?.insertBefore(grupoFecha, btnNormal);
-
-        }
         // ============================================================
         // Los selectores del registro diario salen del catálogo único.
         // Antes este archivo tenía su propia lista de 13 tipos y su propio
