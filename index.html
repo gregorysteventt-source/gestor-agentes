@@ -351,6 +351,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- Limpieza de historial anterior -->
+        <div class="bg-white rounded-xl shadow-lg p-4 md:p-6 border-t-4 border-slate-400">
+            <details>
+                <summary class="cursor-pointer select-none text-sm font-bold text-slate-700">🧹 Limpiar historial de meses anteriores</summary>
+                <div class="mt-3 space-y-3">
+                    <p class="text-xs text-slate-500">Borra guardias, registros diarios y notas <strong>anteriores</strong> al mes que elijas. No se puede deshacer: descargá el respaldo primero.</p>
+
+                    <div class="flex flex-col sm:flex-row sm:items-end gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Borrar todo lo anterior a</label>
+                            <input type="month" id="limpiezaCorteMes" class="rounded-lg border border-slate-300 bg-white p-2 text-sm">
+                        </div>
+                        <button type="button" id="btnLimpiezaContar" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">Ver cuántos registros</button>
+                        <button type="button" id="btnLimpiezaRespaldo" class="rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-800">📥 Descargar respaldo</button>
+                    </div>
+
+                    <div id="limpiezaConteo" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">Elegí un mes y tocá "Ver cuántos registros".</div>
+
+                    <button type="button" id="btnLimpiezaEliminar" disabled class="w-full sm:w-auto rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-black shadow-sm">Eliminar registros anteriores</button>
+                </div>
+            </details>
+        </div>
     </div>
 
     <!-- CONTENIDO PESTAÑA 2: REGISTRO DE VACACIONES, PERMISOS Y LIBRES -->
@@ -939,6 +962,7 @@
 <script src="js/65-panel-dia.js"></script>
     <script src="js/70-calendario.js"></script>
     <script src="js/80-exportaciones-alertas.js"></script>
+<script src="js/85-limpieza-historial.js"></script>
     <script src="js/90-personal.js"></script>
     <script src="js/99-arranque.js"></script>
 
