@@ -347,21 +347,6 @@
             }
         }
 
-        window.marcarRegistroComoNovedad = function() {
-            const tipoSelect = document.getElementById('cobertura_tipo_novedad');
-            const requiereSelect = document.getElementById('cobertura_requiere');
-            const estadoSelect = document.getElementById('cobertura_estado');
-            const formaSelect = document.getElementById('cobertura_forma');
-            const motivoInput = document.getElementById('cobertura_motivo');
-
-            if(tipoSelect && tipoSelect.value === 'Cobertura normal del titular') tipoSelect.value = 'Otro';
-            if(requiereSelect) requiereSelect.value = 'true';
-            if(estadoSelect && estadoSelect.value === 'CUBIERTO') estadoSelect.value = 'FALTA CUBRIR';
-            if(formaSelect && formaSelect.value === 'Cobertura habitual') formaSelect.value = '';
-            if(motivoInput && motivoInput.value === 'Cobertura habitual del puesto.') motivoInput.value = '';
-            mostrarToast('Formulario preparado para registrar una novedad o relevo.', 'info');
-        }
-
         function obtenerFechaRelativaISO(fechaISO, diferenciaDias) {
             const fecha = new Date(fechaISO + 'T00:00:00');
             fecha.setDate(fecha.getDate() + diferenciaDias);

@@ -658,24 +658,6 @@
                         <select id="cobertura_agente_titular" class="w-full border rounded p-2 text-sm bg-white" required></select>
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo de registro:</label>
-                        <select id="cobertura_tipo_novedad" class="w-full border rounded p-2 text-sm bg-white" required>
-                            <option value="Cobertura normal del titular">Cobertura normal</option>
-                            <option value="Día libre por horas extras">Día libre por horas extras</option>
-                            <option value="Entrada más tarde">Entrada más tarde</option>
-                            <option value="Salida más temprano">Salida más temprano</option>
-                            <option value="Vacaciones">Vacaciones</option>
-                            <option value="Consulta médica">Consulta médica</option>
-                            <option value="Cumpleaños">Cumpleaños</option>
-                            <option value="Permiso particular">Permiso particular</option>
-                            <option value="Reposo">Reposo</option>
-                            <option value="Ausencia imprevista">Ausencia imprevista</option>
-                            <option value="Cambio de turno">Cambio de turno</option>
-                            <option value="Cobertura planificada de sábado">Sábado planificado</option>
-                            <option value="Otro">Otro</option>
-                        </select>
-                    </div>
 
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Horario cubierto / afectado:</label>
@@ -697,6 +679,24 @@
                     <details id="detallesCoberturaDiaria" class="bg-white border rounded-lg p-2">
                         <summary class="cursor-pointer text-xs font-bold text-gray-700 select-none">Más detalles / novedad</summary>
                         <div class="mt-3 space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo de registro:</label>
+                            <select id="cobertura_tipo_novedad" class="w-full border rounded p-2 text-sm bg-white" required>
+                                <option value="Cobertura normal del titular">Cobertura normal</option>
+                                <option value="Día libre por horas extras">Día libre por horas extras</option>
+                                <option value="Entrada más tarde">Entrada más tarde</option>
+                                <option value="Salida más temprano">Salida más temprano</option>
+                                <option value="Vacaciones">Vacaciones</option>
+                                <option value="Consulta médica">Consulta médica</option>
+                                <option value="Cumpleaños">Cumpleaños</option>
+                                <option value="Permiso particular">Permiso particular</option>
+                                <option value="Reposo">Reposo</option>
+                                <option value="Ausencia imprevista">Ausencia imprevista</option>
+                                <option value="Cambio de turno">Cambio de turno</option>
+                                <option value="Cobertura planificada de sábado">Sábado planificado</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 mb-1">Detalle:</label>
                                 <textarea id="cobertura_motivo" rows="2" class="w-full border rounded p-2 text-sm bg-white" placeholder="Ej: Cobertura habitual, llegada tarde, salida temprana"></textarea>
@@ -742,14 +742,6 @@
                         </div>
                     </details>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button type="button" onclick="prepararCoberturaNormalSiCorresponde(true)" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold py-2 px-3 rounded text-xs transition">
-                            ✓ Normal
-                        </button>
-                        <button type="button" onclick="marcarRegistroComoNovedad()" class="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 font-bold py-2 px-3 rounded text-xs transition">
-                            ⚠️ Novedad
-                        </button>
-                    </div>
 
                     <div class="flex flex-col sm:flex-row justify-end gap-2 pt-1">
                         <button type="button" id="btnCerrarFormCoberturaDiaria" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition">
