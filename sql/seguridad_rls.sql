@@ -1,23 +1,47 @@
 -- ============================================================
--- Gestor de Guardias — seguridad de las tablas
--- Ejecutar UNA vez en Supabase > SQL Editor.
+-- Gestor de Guardias — activar Row Level Security
+-- Ejecutar en Supabase > SQL Editor.
 --
--- IMPORTANTE: no modifica ni borra datos. Solo activa permisos:
---   - activa Row Level Security en las 6 tablas,
---   - crea una política que permite el acceso al usuario autenticado,
---   - ajusta los permisos de la función guardar_cuadrante_seguro.
+-- IMPORTANTE: no modifica ni borra datos. Solo activa permisos.
 --
--- Por qué: la app está publicada en GitHub Pages y la clave pública (anon key)
--- está en un repositorio público. Con RLS desactivado, cualquiera que tenga esa
--- clave puede leer y escribir las tablas sin pasar por la aplicación.
+-- Este script NO crea políticas. Cada tabla ya tiene la suya, restringida al
+-- usuario dueño con auth.uid(), por ejemplo:
 --
--- Además de esto, hay que cerrar el registro en el panel de Supabase:
---   Authentication > Sign In / Providers > desactivar "Allow new users to sign up".
+--   "Solo Gregory gestiona agentes"  roles={authenticated}
+--   qual: (auth.uid() = 'e7fd2b32-9ce7-405c-acfc-c94b590dbe19')
+--
+-- Una versión anterior de este archivo creaba además una política
+-- "acceso_autenticado" con USING (true). Eso era un error: en PostgreSQL las
+-- políticas permisivas se combinan con OR, así que ampliaba el acceso a
+-- cualquier usuario autenticado y anulaba la restricción por auth.uid().
+-- Si ejecutaste aquella versión, corré primero el bloque 0.
+--
+-- Contexto: la app está publicada en GitHub Pages y la clave pública (anon key)
+-- está en un repositorio público. Sin RLS, cualquiera con esa clave lee y escribe.
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1) Diagnóstico: estado actual de las tablas
---    (queda en el resultado; sirve para comparar antes/después)
+-- 0) Limpieza: quitar la política amplia que creaba la versión anterior
+--    (inofensivo si no existe)
+-- ------------------------------------------------------------
+do $$
+declare
+    tabla text;
+    tablas text[] := array[
+        'agentes','turnos_fines_de_semana','ausencias_agentes',
+        'novedades_coberturas','coberturas_diarias','notas_calendario'
+    ];
+begin
+    foreach tabla in array tablas loop
+        if to_regclass(format('public.%I', tabla)) is null then continue; end if;
+        execute format('drop policy if exists acceso_autenticado on public.%I', tabla);
+    end loop;
+    raise notice 'Limpieza lista: política acceso_autenticado eliminada si existía.';
+end
+$$;
+
+-- ------------------------------------------------------------
+-- 1) Diagnóstico previo
 -- ------------------------------------------------------------
 select c.relname as tabla,
        c.relrowsecurity as rls_activo,
@@ -31,19 +55,17 @@ where n.nspname = 'public'
 order by c.relname;
 
 -- ------------------------------------------------------------
--- 2) Activar RLS y crear la política de acceso autenticado
---    Es idempotente: se puede ejecutar más de una vez.
+-- 2) Activar RLS, sin crear políticas
+--    Si una tabla no tuviera ninguna política, queda bloqueada por completo
+--    (deny all): el aviso te lo dice para que la crees a mano.
 -- ------------------------------------------------------------
 do $$
 declare
     tabla text;
+    total_politicas integer;
     tablas text[] := array[
-        'agentes',
-        'turnos_fines_de_semana',
-        'ausencias_agentes',
-        'novedades_coberturas',
-        'coberturas_diarias',
-        'notas_calendario'
+        'agentes','turnos_fines_de_semana','ausencias_agentes',
+        'novedades_coberturas','coberturas_diarias','notas_calendario'
     ];
 begin
     foreach tabla in array tablas loop
@@ -54,17 +76,15 @@ begin
 
         execute format('alter table public.%I enable row level security', tabla);
 
-        execute format('drop policy if exists acceso_autenticado on public.%I', tabla);
-        execute format(
-            'create policy acceso_autenticado on public.%I
-                for all
-                to authenticated
-                using (true)
-                with check (true)',
-            tabla
-        );
+        select count(*) into total_politicas
+        from pg_policy p
+        where p.polrelid = to_regclass(format('public.%I', tabla));
 
-        raise notice 'RLS activo y política creada en %.', tabla;
+        if total_politicas = 0 then
+            raise warning 'ATENCIÓN: % quedó con RLS y sin políticas: nadie podrá acceder. Creá una restringida con auth.uid().', tabla;
+        else
+            raise notice 'RLS activo en % (% política/s).', tabla, total_politicas;
+        end if;
     end loop;
 end
 $$;
@@ -89,24 +109,29 @@ end
 $$;
 
 -- ------------------------------------------------------------
--- 4) Verificación: todas las tablas deben salir con rls_activo = true
---    y con 1 política.
+-- 4) Verificación: RLS activo, 1 política por tabla y sin políticas abiertas
+--    Todas las filas deben salir con rls_activo = true,
+--    politica_abierta = false y roles = {authenticated}.
 -- ------------------------------------------------------------
 select c.relname as tabla,
        c.relrowsecurity as rls_activo,
-       (select count(*) from pg_policy p where p.polrelid = c.oid) as politicas
+       count(p.oid) as politicas,
+       bool_or(p.polroles::text like '%anon%') as politica_abierta,
+       string_agg(p.polname, ' | ' order by p.polname) as nombres
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
+left join pg_policy p on p.polrelid = c.oid
 where n.nspname = 'public'
   and c.relkind = 'r'
   and c.relname in ('agentes','turnos_fines_de_semana','ausencias_agentes',
                     'novedades_coberturas','coberturas_diarias','notas_calendario')
+group by c.relname, c.relrowsecurity
 order by c.relname;
 
 -- ============================================================
 -- DESHACER (solo si algo sale mal)
--- Descomentá y ejecutá este bloque. Deja las tablas como estaban:
--- sin RLS y sin la política.
+-- Descomentá y ejecutá. Deja las tablas sin RLS, como estaban al principio.
+-- Las políticas NO se borran: solo dejan de aplicarse.
 -- ============================================================
 -- do $$
 -- declare
@@ -116,7 +141,6 @@ order by c.relname;
 -- begin
 --     foreach tabla in array tablas loop
 --         if to_regclass(format('public.%I', tabla)) is null then continue; end if;
---         execute format('drop policy if exists acceso_autenticado on public.%I', tabla);
 --         execute format('alter table public.%I disable row level security', tabla);
 --         raise notice 'Revertido en %.', tabla;
 --     end loop;
