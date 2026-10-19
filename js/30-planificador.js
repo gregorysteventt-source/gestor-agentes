@@ -77,6 +77,48 @@
             });
         }
 
+        // Un feriado que se quitó del cuadrante con la ✕ queda recordado en este
+        // navegador. Antes se borraba solo de la memoria: al recargar, como los turnos
+        // de ese feriado seguían guardados en la base, la fila volvía a aparecer.
+        const CLAVE_FERIADOS_OCULTOS = 'feriados_ocultos_planificador';
+
+        function obtenerFeriadosOcultos() {
+            try {
+                const crudo = localStorage.getItem(CLAVE_FERIADOS_OCULTOS);
+                const lista = JSON.parse(crudo || '[]');
+                return Array.isArray(lista) ? lista : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function guardarFeriadosOcultos(fechas) {
+            try {
+                localStorage.setItem(CLAVE_FERIADOS_OCULTOS, JSON.stringify(fechas));
+            } catch (error) {
+                // Si el navegador bloquea el almacenamiento, la app sigue funcionando:
+                // solo se pierde el recordatorio entre recargas.
+            }
+        }
+
+        function ocultarFeriadoPlanificador(fecha) {
+            if (!fecha) return;
+            const ocultos = obtenerFeriadosOcultos();
+            if (!ocultos.includes(fecha)) {
+                ocultos.push(fecha);
+                guardarFeriadosOcultos(ocultos);
+            }
+        }
+
+        function mostrarFeriadoPlanificador(fecha) {
+            if (!fecha) return;
+            guardarFeriadosOcultos(obtenerFeriadosOcultos().filter(item => item !== fecha));
+        }
+
+        function estaFeriadoOculto(fecha) {
+            return obtenerFeriadosOcultos().includes(fecha);
+        }
+
         // Elimina de forma segura un feriado local del cuadrante preservando el estado
         window.eliminarFilaFeriado = function(fechaStr) {
             guardarSeleccionesTemporales();
@@ -87,8 +129,11 @@
                 }
             });
             diasPlanificados = diasPlanificados.filter(d => d.fecha !== fechaStr);
+            // Se recuerda en este navegador; si no, al recargar la fila vuelve porque
+            // los turnos de ese feriado siguen guardados en la base.
+            ocultarFeriadoPlanificador(fechaStr);
             renderizarTablasPlanificacion();
-            mostrarToast("Fila de Feriado removida.", "info");
+            mostrarToast("Fila de feriado removida. No vuelve a aparecer al recargar.", "info");
         };
 
         // Sincronizar dinámicamente el contenido de los dropdowns según inactividad o ausencias vigentes
@@ -276,6 +321,8 @@
             if (diasEnBD && diasEnBD.length > 0) {
                 const fechasUnicas = [...new Set(diasEnBD.map(d => d.fecha))];
                 fechasUnicas.forEach(f => {
+                    // Si el supervisor lo quitó con la ✕, no se vuelve a agregar solo.
+                    if (estaFeriadoOculto(f)) return;
                     if (!diasPlanificados.find(d => d.fecha === f)) {
                         diasPlanificados.push({ fecha: f, tipo: 'feriado' });
                     }

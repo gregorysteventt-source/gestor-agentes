@@ -139,11 +139,29 @@
             };
         }
 
-        async function guardarRegistroCambioDirecto(datos) {
-            const existente = coberturasDiariasEnMemoria.find(reg =>
+        // Devuelve la fila que corresponde actualizar para un cambio directo.
+        // Prioriza la coincidencia por fecha + agente + área + turno. Si no existe, cae
+        // a la fila del agente para ese día (el caso normal: un registro por agente por
+        // día), para no crear un duplicado cuando el puesto habitual cambió.
+        function buscarRegistroParaCambioDirecto(datos, registros) {
+            const lista = Array.isArray(registros) ? registros : [];
+            const coincideAgenteYFecha = (reg) =>
                 reg.fecha === datos.fecha &&
-                String(reg.agente_titular_id) === String(datos.agente_titular_id)
-            );
+                String(reg.agente_titular_id) === String(datos.agente_titular_id);
+
+            return lista.find(reg =>
+                coincideAgenteYFecha(reg) &&
+                String(reg.area || '') === String(datos.area || '') &&
+                String(reg.turno || '') === String(datos.turno || '')
+            ) || lista.find(coincideAgenteYFecha) || null;
+        }
+
+        async function guardarRegistroCambioDirecto(datos) {
+            // Antes se buscaba la fila solo por fecha y agente: si el agente tenía dos
+            // registros ese día (mañana en un área y tarde en otra), se pisaba el
+            // primero y ese registro terminaba con el área y el turno del otro puesto,
+            // convertido en "Cambio de turno" sin que nadie lo pidiera.
+            const existente = buscarRegistroParaCambioDirecto(datos, coberturasDiariasEnMemoria);
 
             if(existente) {
                 return supabaseClient

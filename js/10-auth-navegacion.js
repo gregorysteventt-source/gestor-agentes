@@ -171,6 +171,8 @@
                     guardarSeleccionesTemporales();
 
                     // Agregar y ordenar cronológicamente
+                    // Si antes se había quitado con la ✕, volver a agregarlo lo muestra de nuevo.
+                    mostrarFeriadoPlanificador(fechaFeriado);
                     diasPlanificados.push({ fecha: fechaFeriado, tipo: 'feriado' });
                     diasPlanificados.sort((a, b) => a.fecha.localeCompare(b.fecha));
 
