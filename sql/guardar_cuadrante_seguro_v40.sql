@@ -65,5 +65,7 @@ $$;
 -- El RLS de la tabla sigue aplicando porque la función es SECURITY INVOKER.
 grant execute on function public.guardar_cuadrante_seguro(date[], jsonb) to authenticated;
 
--- Opcional: evita ejecución desde usuarios anónimos si no querés que el endpoint quede disponible sin sesión.
+-- El permiso por defecto de PostgreSQL se concede a PUBLIC, así que hay que
+-- revocar de PUBLIC (revocar solo de "anon" dejaba el endpoint abierto igual).
+revoke execute on function public.guardar_cuadrante_seguro(date[], jsonb) from public;
 revoke execute on function public.guardar_cuadrante_seguro(date[], jsonb) from anon;

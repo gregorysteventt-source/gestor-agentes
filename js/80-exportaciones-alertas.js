@@ -238,11 +238,16 @@
                     const fechas = [...new Set(registros.map(r => r.fecha))];
                     fechas.forEach(fecha => {
                         const rowData = [formatearFechaExcel(fecha), '', '', ''];
+                        // Si hay más de un agente en el mismo turno, se listan todos:
+                        // antes se sobrescribía la celda y quedaba solo el último.
+                        const agregarEnCelda = (indice, nombre) => {
+                            rowData[indice] = rowData[indice] ? `${rowData[indice]}, ${nombre}` : nombre;
+                        };
                         registros.filter(r => r.fecha === fecha).forEach(r => {
                             const nombre = obtenerNombreAgentePorId(r.agente_id);
-                            if (r.turno === 'Mañana') rowData[1] = nombre;
-                            if (r.turno === 'Tarde') rowData[2] = nombre;
-                            if (r.turno === 'Noche') rowData[3] = nombre;
+                            if (r.turno === 'Mañana') agregarEnCelda(1, nombre);
+                            if (r.turno === 'Tarde') agregarEnCelda(2, nombre);
+                            if (r.turno === 'Noche') agregarEnCelda(3, nombre);
                         });
                         estilizarFila(worksheet.addRow(rowData));
                     });
@@ -276,169 +281,4 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
             mostrarToast('Excel descargado correctamente.', 'success');
-        }
-
-        // ============================================================
-        // 15.1) AJUSTES TEMPORALES DE INTERFAZ Y NOTAS DEL CALENDARIO
-        // ============================================================
-        const COLORES_NOTAS_CALENDARIO = [
-            { id: 'violeta', nombre: 'Violeta', clase: 'bg-violet-600 text-white border-violet-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'azul', nombre: 'Azul', clase: 'bg-blue-600 text-white border-blue-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'celeste', nombre: 'Celeste', clase: 'bg-cyan-500 text-white border-cyan-600 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'verde', nombre: 'Verde', clase: 'bg-emerald-600 text-white border-emerald-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'amarillo', nombre: 'Amarillo', clase: 'bg-yellow-400 text-yellow-950 border-yellow-500 shadow-sm', punto: 'bg-yellow-950' },
-            { id: 'naranja', nombre: 'Naranja', clase: 'bg-orange-500 text-white border-orange-600 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'rojo', nombre: 'Rojo', clase: 'bg-red-600 text-white border-red-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'fucsia', nombre: 'Fucsia', clase: 'bg-fuchsia-600 text-white border-fuchsia-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' },
-            { id: 'gris', nombre: 'Gris', clase: 'bg-slate-600 text-white border-slate-700 shadow-sm', punto: 'bg-white/90 ring-2 ring-white/60' }
-        ];
-
-        obtenerClaseNotaCalendario = function(color = 'violeta') {
-            const item = COLORES_NOTAS_CALENDARIO.find(opcion => opcion.id === color);
-            return item ? item.clase : COLORES_NOTAS_CALENDARIO[0].clase;
-        };
-
-        function mostrarSelectorColorNotaCalendario(colorActual = 'violeta') {
-            return new Promise(resolve => {
-                let colorSeleccionado = COLORES_NOTAS_CALENDARIO.some(opcion => opcion.id === colorActual) ? colorActual : 'violeta';
-                const backdrop = document.createElement('div');
-                backdrop.className = 'fixed inset-0 z-[95] bg-slate-900/45 flex items-center justify-center p-4';
-                backdrop.innerHTML = `
-                    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-                        <div class="px-5 py-4 border-b bg-slate-50">
-                            <h3 class="text-base font-black text-slate-900">Elegir color de la nota</h3>
-                            <p class="text-xs text-slate-500 mt-1">Este color se verá en el calendario y en el detalle del día.</p>
-                        </div>
-                        <div class="p-4 grid grid-cols-2 sm:grid-cols-3 gap-2" id="selectorColorNotaOpciones">
-                            ${COLORES_NOTAS_CALENDARIO.map(opcion => `
-                                <button type="button" data-color="${opcion.id}" class="color-nota-opcion border ${opcion.clase} rounded-xl px-3 py-2 text-xs font-black flex items-center gap-2 hover:scale-[1.02] transition ${opcion.id === colorSeleccionado ? 'ring-2 ring-slate-900 ring-offset-2' : ''}">
-                                    <span class="w-3 h-3 rounded-full ${opcion.punto}"></span>
-                                    ${opcion.nombre}
-                                </button>
-                            `).join('')}
-                        </div>
-                        <div class="px-5 py-3 bg-slate-50 border-t flex justify-end gap-2">
-                            <button type="button" id="btnCancelarColorNota" class="bg-white hover:bg-slate-100 border text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition">Cancelar</button>
-                            <button type="button" id="btnAceptarColorNota" class="bg-violet-600 hover:bg-violet-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition">Usar color</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(backdrop);
-
-                const cerrar = valor => {
-                    backdrop.remove();
-                    resolve(valor);
-                };
-
-                backdrop.querySelectorAll('[data-color]').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        colorSeleccionado = btn.dataset.color;
-                        backdrop.querySelectorAll('[data-color]').forEach(item => item.classList.remove('ring-2', 'ring-slate-900', 'ring-offset-2'));
-                        btn.classList.add('ring-2', 'ring-slate-900', 'ring-offset-2');
-                    });
-                });
-                backdrop.querySelector('#btnCancelarColorNota')?.addEventListener('click', () => cerrar(null));
-                backdrop.querySelector('#btnAceptarColorNota')?.addEventListener('click', () => cerrar(colorSeleccionado));
-                backdrop.addEventListener('click', e => {
-                    if(e.target === backdrop) cerrar(null);
-                });
-            });
-        }
-
-        abrirFormularioNotaCalendario = async function(fechaISO, notaExistente = null) {
-            const titulo = await mostrarModalTexto({
-                titulo: notaExistente ? `Editar nota del ${formatearFechaSimple(fechaISO)}` : `Nota para ${formatearFechaSimple(fechaISO)}`,
-                subtitulo: 'Este título corto se verá en el recuadro del calendario.',
-                valorInicial: notaExistente?.titulo || '',
-                placeholder: 'Ej: revisar cobertura de la tarde',
-                textoAceptar: 'Siguiente'
-            });
-            if(!titulo || !titulo.trim()) return;
-
-            const detalle = await mostrarModalTexto({
-                titulo: 'Detalle de la nota',
-                subtitulo: 'Este texto aparece al abrir el día.',
-                valorInicial: notaExistente?.detalle || '',
-                placeholder: 'Detalle o recordatorio...',
-                textoAceptar: 'Elegir color'
-            });
-            if(detalle === null) return;
-
-            const color = await mostrarSelectorColorNotaCalendario(notaExistente?.color || 'violeta');
-            if(color === null) return;
-
-            const payload = {
-                fecha: fechaISO,
-                titulo: titulo.trim(),
-                detalle: detalle ? detalle.trim() : null,
-                color: color || 'violeta',
-                actualizado_en: new Date().toISOString()
-            };
-
-            const resultado = notaExistente
-                ? await supabaseClient.from(TABLAS.NOTAS_CALENDARIO).update(payload).eq('id', notaExistente.id)
-                : await supabaseClient.from(TABLAS.NOTAS_CALENDARIO).insert([payload]);
-
-            if(resultado.error) {
-                console.error('Error guardando nota del calendario:', resultado.error);
-                mostrarToast('No se pudo guardar la nota del calendario.', 'error');
-                return;
-            }
-
-            mostrarToast(notaExistente ? 'Nota actualizada.' : 'Nota agregada al calendario.', 'success');
-            await cargarDatosCalendario();
-            abrirDetalleDiaCalendario(fechaISO);
-        };
-
-        window.editarNotaCalendario = async function(id) {
-            const nota = notasCalendarioEnMemoria.find(n => n.id == id);
-            if(!nota) {
-                mostrarToast('No se encontró la nota para editar.', 'warning');
-                return;
-            }
-            await abrirFormularioNotaCalendario(nota.fecha, nota);
-        };
-
-        function retirarTemporalmentePestanasNovedadesDiario() {
-            const styleId = 'retirar-tabs-novedades-diario-v50';
-            if(!document.getElementById(styleId)) {
-                const style = document.createElement('style');
-                style.id = styleId;
-                style.textContent = `
-                    button[onclick*="tab-novedades"],
-                    button[onclick*="tab-diario"],
-                    #tab-novedades,
-                    #tab-diario {
-                        display: none !important;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            document.querySelectorAll('button[onclick*="tab-novedades"], button[onclick*="tab-diario"]').forEach(btn => {
-                btn.setAttribute('aria-hidden', 'true');
-                btn.tabIndex = -1;
-            });
-
-            ['tab-novedades', 'tab-diario'].forEach(tabId => {
-                const tab = document.getElementById(tabId);
-                if(tab) {
-                    tab.classList.add('hidden');
-                    tab.dataset.retiradoTemporalmente = 'true';
-                }
-            });
-        }
-
-        retirarTemporalmentePestanasNovedadesDiario();
-
-        const activarPestanaOriginalV50 = typeof activarPestaña === 'function' ? activarPestaña : null;
-        if(activarPestanaOriginalV50) {
-            activarPestaña = function(tabId) {
-                if(tabId === 'tab-novedades' || tabId === 'tab-diario') {
-                    return activarPestanaOriginalV50('tab-cuadrante');
-                }
-                const resultado = activarPestanaOriginalV50(tabId);
-                retirarTemporalmentePestanasNovedadesDiario();
-                return resultado;
-            };
         }

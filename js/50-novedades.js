@@ -9,14 +9,16 @@
 
         // Motivos de novedades que pueden convertirse de forma segura en una ausencia de jornada.
         // Los pedidos de entrada/salida más temprano quedan fuera porque son parciales y no conviene bloquear todo el día.
+        // Antes había acá una tercera tabla de equivalencias escrita a mano
+        // ("dia libre por horas extras" -> 'Día Libre', "cumpleanos" -> 'Día Libre',
+        // "permiso particular" -> 'Permiso'). Ahora el catálogo único resuelve el
+        // motivo y devuelve su valor canónico, el mismo que usa el formulario de
+        // Ausencias. Un pedido se puede convertir en ausencia si ese motivo existe
+        // en el formulario de Ausencias.
         function obtenerTipoAusenciaDesdeNovedad(motivoPedido) {
-            const motivo = normalizarTextoBusqueda(motivoPedido);
-
-            if(motivo.includes('vacaciones')) return 'Vacaciones';
-            if(motivo.includes('dia libre por horas extras') || motivo.includes('cumpleanos')) return 'Día Libre';
-            if(motivo.includes('consulta medica') || motivo.includes('permiso particular')) return 'Permiso';
-
-            return null;
+            const motivo = obtenerMotivo(motivoPedido);
+            if(!motivo) return null;
+            return motivo.aplicaA.includes('ausencias') ? motivo.valor : null;
         }
 
         function novedadPuedeConvertirseEnAusencia(novedad) {
@@ -133,8 +135,10 @@
             novedadesFiltradas.forEach(nov => {
                 const nombre = nov.agentes ? nov.agentes.nombre_corto : 'Desconocido';
                 const estado = nov.estado_cobertura || 'FALTA CUBRIR';
-                const estadoOptions = ['FALTA CUBRIR', 'CUBIERTO', 'NO REQUIERE COBERTURA', 'CANCELADO']
-                    .map(opcion => `<option value="${opcion}" ${opcion === estado ? 'selected' : ''}>${opcion}</option>`)
+                // Los estados salen del catálogo único: 6 valores, no los 4 que tenía
+                // esta pantalla por su cuenta.
+                const estadoOptions = ESTADOS_COBERTURA
+                    .map(item => `<option value="${item.valor}" ${item.valor === estado ? 'selected' : ''}>${item.valor}</option>`)
                     .join('');
 
                 const puedeConvertirse = novedadPuedeConvertirseEnAusencia(nov);
@@ -145,7 +149,8 @@
                         ? `<button onclick="convertirNovedadEnAusencia(${nov.id})" class="novedad-action-btn bg-red-50 text-red-700 border border-red-100 hover:bg-red-100" title="Convertir en ausencia">Ausencia</button>`
                         : '');
 
-                const resumenMotivo = nov.motivo_pedido || '-';
+                // Etiqueta canónica: 'Día libre por horas extras' y 'Día Libre' se muestran igual.
+                const resumenMotivo = nov.motivo_pedido ? etiquetaMotivo(nov.motivo_pedido) : '-';
                 const resumenTiempo = nov.observacion_tiempo ? ` · ${nov.observacion_tiempo}` : '';
                 const notas = limpiarNotasRelevoNovedad(nov.notas_relevo) || 'Sin notas registradas.';
                 const rangoPedido = formatearRangoNovedad(nov);
@@ -541,3 +546,15 @@
         }
 
         // ============================================================
+
+        // ============================================================
+        // Los selectores del formulario de pedidos salen del catálogo único.
+        // Antes tenían su propia lista de 8 motivos, distinta de la de Ausencias
+        // y de la del Registro diario.
+        // ============================================================
+        function instalarSelectoresPedidos() {
+            renderizarOpcionesMotivo(document.getElementById('novedad_motivo_tipo'), 'pedidos');
+            renderizarOpcionesEstado(document.getElementById('novedad_estado'), 'FALTA CUBRIR');
+        }
+
+        instalarSelectoresPedidos();

@@ -1,7 +1,7 @@
         // 7) RENDERIZADO DEL PLANIFICADOR
         // ============================================================
         // Genera visualmente la estructura de las tablas de planificación según las fechas activas
-        function renderizarTablasPlanificacion() {
+        function renderizarTablasPlanificacionBase() {
             const tbodyCC = document.getElementById('tbody-cc');
             const tbodyIdent = document.getElementById('tbody-ident');
             if(!tbodyCC || !tbodyIdent) return;
@@ -59,11 +59,21 @@
             });
         }
 
+        // Tablas del planificador: dibuja la base y luego añade los horarios
+        // editables en las cabeceras de los turnos.
+        function renderizarTablasPlanificacion() {
+            renderizarTablasPlanificacionBase();
+            agregarControlesHorarioPlanificador();
+        }
+
         // Guarda temporalmente las selecciones hechas en la interfaz
         function guardarSeleccionesTemporales() {
             seleccionesTemporales = {};
             document.querySelectorAll('.agente-select').forEach(select => {
                 seleccionesTemporales[select.id] = select.value;
+            });
+            document.querySelectorAll('.horario-planificador-input').forEach(input => {
+                seleccionesTemporales[input.id] = formatearHorarioPlanificador(input.value || input.placeholder);
             });
         }
 
@@ -131,7 +141,7 @@
         // 8) RECUPERACIÓN DE TURNOS GUARDADOS
         // ============================================================
         // Recuperar planificación de guardias históricas guardadas en Supabase de forma segmentada
-        async function cargarTurnosGuardadosParaPlanificacion(fechasAFetch = []) {
+        async function cargarTurnosGuardadosParaPlanificacionBase(fechasAFetch = []) {
             const fechas = fechasAFetch.length > 0 ? fechasAFetch : diasPlanificados.map(d => d.fecha);
             if (fechas.length === 0) return;
 
@@ -159,7 +169,8 @@
                         if (!Array.from(el.options).some(opt => opt.value === agenteIdStr)) {
                             const agente = agentesEnMemoria.find(a => a.id == turno.agente_id);
                             const nombre = agente ? `${agente.nombre_corto} (Inactivo)` : 'Desconocido';
-                            el.innerHTML += `<option value="${agenteIdStr}">${nombre}</option>`;
+                            // escaparHTML: el nombre viene de la base y se inserta como HTML.
+                            el.innerHTML += `<option value="${agenteIdStr}">${escaparHTML(nombre)}</option>`;
                         }
                         el.value = agenteIdStr;
                         // Guardar en la memoria temporal también
@@ -172,6 +183,31 @@
             } catch (err) {
                 console.error("Lectura de datos omitida de forma segura:", err);
             }
+        }
+
+        // Recupera los turnos guardados y rellena además el horario real de cada
+        // turno en el input de su cabecera.
+        async function cargarTurnosGuardadosParaPlanificacion(fechasAFetch = []) {
+            await cargarTurnosGuardadosParaPlanificacionBase(fechasAFetch);
+
+            const fechas = fechasAFetch.length > 0 ? fechasAFetch : diasPlanificados.map(d => d.fecha);
+            if(fechas.length === 0) return;
+
+            const { data, error } = await supabaseClient
+                .from(TABLAS.TURNOS)
+                .select('fecha, turno, agente_id, modalidad, sucursal')
+                .in('fecha', fechas);
+
+            if(error || !data) return;
+
+            data.forEach(turno => {
+                const area = esRegistroIdentificaciones(turno) ? 'Identificaciones' : 'Call Center';
+                const input = document.getElementById(obtenerIdHorarioPlanificador(area, turno.fecha, turno.turno));
+                if(!input) return;
+                const horario = obtenerHorarioPersonalizadoPlanificador(turno, area);
+                input.value = horario;
+                seleccionesTemporales[input.id] = horario;
+            });
         }
 
         // ============================================================
@@ -579,6 +615,7 @@
             const conflictos = [];
 
             filasIdentificacionesSabado.forEach(row => {
+                const horarioPersonalizado = obtenerHorarioPersonalizadoPlanificador(row, 'Identificaciones');
                 const registro = {
                     fecha: row.fecha,
                     area: 'Identificaciones',
@@ -590,7 +627,7 @@
                     estado_cobertura: 'CUBIERTO',
                     agente_cobertura_id: parseInt(row.agente_id),
                     forma_cobertura: 'Guardia planificada de sábado',
-                    horario_afectado: obtenerHorarioPorTurnoRegistroDiario(row.turno),
+                    horario_afectado: horarioPersonalizado,
                     resultado: 'Cobertura registrada automáticamente desde el planificador.',
                     observaciones: `${MARCA_AUTO_PLANIFICADOR_IDENTIFICACIONES} Sincronizado desde el planificador de sábado de Identificaciones.`,
                     novedad_id: null
@@ -749,94 +786,6 @@
             }
         }
 
-        // Guardar/Actualizar la planificación de guardias de las fechas activas
-        document.getElementById('btnGuardar').addEventListener('click', async () => {
-            if(diasPlanificados.length === 0) {
-                mostrarToast("Por favor, selecciona la fecha del sábado antes de guardar.", "warning");
-                return;
-            }
-
-            const filasAInsertar = [];
-            const fechasPlanificadas = diasPlanificados.map(d => d.fecha);
-
-            diasPlanificados.forEach(dia => {
-                // Procesar Call Center
-                ['Mañana', 'Tarde', 'Noche'].forEach(turno => {
-                    const selectEl = document.getElementById(`cc_${dia.fecha}_${turno}`);
-                    const agenteId = selectEl ? selectEl.value : "";
-                    if (agenteId) {
-                        const datosAgente = agentesEnMemoria.find(a => a.id == agenteId);
-                        filasAInsertar.push({
-                            fecha: dia.fecha,
-                            turno: turno,
-                            agente_id: parseInt(agenteId),
-                            // Guardamos el área del turno, no solo la modalidad original del agente.
-                            // Esto evita que un agente presencial asignado al Call Center aparezca mal en reportes.
-                            modalidad: 'Contact Center',
-                            sucursal: null
-                        });
-                    }
-                });
-
-                // Procesar Identificaciones (Cerrado Domingos y Feriados - Solo Sábados)
-                if(dia.tipo === 'sabado') {
-                    ['Mañana', 'Tarde'].forEach(turno => {
-                        const selectEl = document.getElementById(`ident_${dia.fecha}_${turno}`);
-                        const agenteId = selectEl ? selectEl.value : "";
-                        if (agenteId) {
-                            const datosAgente = agentesEnMemoria.find(a => a.id == agenteId);
-                            filasAInsertar.push({
-                                fecha: dia.fecha,
-                                turno: turno,
-                                agente_id: parseInt(agenteId),
-                                // Guardamos Identificaciones como área presencial para que el historial y Excel lo clasifiquen bien.
-                                modalidad: 'Presencial',
-                                sucursal: datosAgente && datosAgente.sucursal ? datosAgente.sucursal : 'Dpto de Identificaciones'
-                            });
-                        }
-                    });
-                }
-            });
-
-            if (filasAInsertar.length === 0) {
-                mostrarToast("Por favor, selecciona al menos un agente antes de guardar.", "warning");
-                return;
-            }
-
-            const validacionCuadrante = validarCuadranteAntesDeGuardar(filasAInsertar);
-            if (!validacionCuadrante.ok) {
-                mostrarToast(validacionCuadrante.mensaje, "warning");
-                return;
-            }
-
-            const btn = document.getElementById('btnGuardar');
-            btn.innerText = "Guardando cuadrante...";
-            btn.disabled = true;
-
-            try {
-                const resultadoGuardado = await guardarCuadranteTransaccional(filasAInsertar, fechasPlanificadas);
-
-                if(!resultadoGuardado.ok) {
-                    mostrarToast(resultadoGuardado.mensaje, resultadoGuardado.tipo || "error");
-                    return;
-                }
-
-                const syncRegistroDiario = await sincronizarSabadosIdentificacionesConRegistroDiario(filasAInsertar, fechasPlanificadas);
-                if(syncRegistroDiario.ok) {
-                    await listarCoberturasDiarias();
-                    const extra = syncRegistroDiario.insertados > 0 ? ` Además, se sincronizaron ${syncRegistroDiario.insertados} cobertura(s) de sábado de Identificaciones en el Registro Diario.` : '';
-                    mostrarToast("¡Planificación de fin de semana guardada con éxito!" + extra, "success");
-                } else {
-                    mostrarToast("La planificación se guardó, pero no se pudo sincronizar el Registro Diario: " + syncRegistroDiario.mensaje, "warning");
-                }
-            } catch(errorInesperado) {
-                console.error("Error inesperado al guardar cuadrante:", errorInesperado);
-                mostrarToast("Ocurrió un error inesperado al guardar el cuadrante. Revisá la consola para más detalles.", "error");
-            } finally {
-                btn.innerText = "Guardar Cuadrante en Base de Datos";
-                btn.disabled = false;
-            }
-        });
 
         // Guarda el cuadrante usando una RPC de Supabase para que el borrado y la inserción
         // ocurran dentro de una sola transacción en la base de datos.
@@ -1068,3 +1017,160 @@
         }
 
         // ============================================================
+
+        function agregarControlesHorarioPlanificador() {
+            document.querySelectorAll('.horario-planificador-input').forEach(input => input.remove());
+
+            agregarControlesHorarioEnTabla({
+                tbodyId: 'tbody-cc',
+                area: 'Call Center',
+                selectPrefix: 'cc',
+                turnos: ['Mañana', 'Tarde', 'Noche']
+            });
+
+            agregarControlesHorarioEnTabla({
+                tbodyId: 'tbody-ident',
+                area: 'Identificaciones',
+                selectPrefix: 'ident',
+                turnos: ['Mañana', 'Tarde']
+            });
+        }
+
+        function agregarControlesHorarioEnTabla({ tbodyId, area, selectPrefix, turnos }) {
+            const tabla = document.getElementById(tbodyId)?.closest('table');
+            if(!tabla) return;
+
+            const headers = tabla.querySelectorAll('thead th');
+            const esIdent = normalizarAreaPlanificador(area) === 'Identificaciones';
+
+            turnos.forEach((turno, index) => {
+                const select = document.querySelector(`select[id^="${selectPrefix}_"][id$="_${turno}"]`);
+                const th = headers[index + 1];
+                if(!select || !th) return;
+
+                const parts = select.id.split('_');
+                const fecha = parts[1];
+                const idHorario = obtenerIdHorarioPlanificador(area, fecha, turno);
+                const valorExistente = document.getElementById(idHorario)?.value;
+                const valorGuardado = formatearHorarioPlanificador(seleccionesTemporales[idHorario] || valorExistente || obtenerHorarioBasePlanificador(area, turno));
+
+                th.innerHTML = '';
+
+                const label = document.createElement('div');
+                label.className = 'font-bold';
+                label.textContent = `Turno ${turno}`;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = idHorario;
+                input.value = valorGuardado;
+                input.placeholder = obtenerHorarioBasePlanificador(area, turno);
+                input.title = 'Horario real de cobertura';
+                input.setAttribute('aria-label', `Horario ${turno} ${area}`);
+                input.className = `horario-planificador-input ${esIdent ? 'horario-ident-input' : 'horario-cc-input'} mt-1 w-36 max-w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-center text-xs font-normal text-emerald-950 outline-none transition hover:border-emerald-300 hover:bg-white/50 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-200`;
+                input.addEventListener('input', (e) => {
+                    seleccionesTemporales[e.target.id] = e.target.value;
+                });
+                input.addEventListener('blur', (e) => {
+                    e.target.value = formatearHorarioPlanificador(e.target.value || e.target.placeholder);
+                    seleccionesTemporales[e.target.id] = e.target.value;
+                });
+
+                th.appendChild(label);
+                th.appendChild(input);
+            });
+        }
+
+
+        async function guardarPlanificadorConHorariosEspeciales() {
+            if(diasPlanificados.length === 0) {
+                mostrarToast('Por favor, selecciona la fecha del sábado antes de guardar.', 'warning');
+                return;
+            }
+
+            const filasAInsertar = [];
+            const fechasPlanificadas = diasPlanificados.map(d => d.fecha);
+
+            diasPlanificados.forEach(dia => {
+                ['Mañana', 'Tarde', 'Noche'].forEach(turno => {
+                    const selectEl = document.getElementById(`cc_${dia.fecha}_${turno}`);
+                    const agenteId = selectEl ? selectEl.value : '';
+                    if(agenteId) {
+                        const horario = leerHorarioPlanificadorDesdePantalla('Call Center', dia.fecha, turno);
+                        filasAInsertar.push({
+                            fecha: dia.fecha,
+                            turno,
+                            agente_id: parseInt(agenteId),
+                            modalidad: 'Contact Center',
+                            sucursal: construirSucursalConHorario('Call Center', horario)
+                        });
+                    }
+                });
+
+                if(dia.tipo === 'sabado') {
+                    ['Mañana', 'Tarde'].forEach(turno => {
+                        const selectEl = document.getElementById(`ident_${dia.fecha}_${turno}`);
+                        const agenteId = selectEl ? selectEl.value : '';
+                        if(agenteId) {
+                            const datosAgente = agentesEnMemoria.find(a => a.id == agenteId);
+                            const horario = leerHorarioIdentificacionDesdePantalla(dia.fecha, turno);
+                            const sucursalBase = datosAgente && datosAgente.sucursal ? datosAgente.sucursal : 'Dpto de Identificaciones';
+                            filasAInsertar.push({
+                                fecha: dia.fecha,
+                                turno,
+                                agente_id: parseInt(agenteId),
+                                modalidad: 'Presencial',
+                                sucursal: construirSucursalIdentificacionesConHorario(sucursalBase, horario)
+                            });
+                        }
+                    });
+                }
+            });
+
+            if(filasAInsertar.length === 0) {
+                mostrarToast('Por favor, selecciona al menos un agente antes de guardar.', 'warning');
+                return;
+            }
+
+            const validacionCuadrante = validarCuadranteAntesDeGuardar(filasAInsertar);
+            if(!validacionCuadrante.ok) {
+                mostrarToast(validacionCuadrante.mensaje, 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('btnGuardar');
+            if(btn) {
+                btn.innerText = 'Guardando cuadrante...';
+                btn.disabled = true;
+            }
+
+            try {
+                const resultadoGuardado = await guardarCuadranteTransaccional(filasAInsertar, fechasPlanificadas);
+
+                if(!resultadoGuardado.ok) {
+                    mostrarToast(resultadoGuardado.mensaje, resultadoGuardado.tipo || 'error');
+                    return;
+                }
+
+                const syncRegistroDiario = await sincronizarSabadosIdentificacionesConRegistroDiario(filasAInsertar, fechasPlanificadas);
+                if(syncRegistroDiario.ok) {
+                    await listarCoberturasDiarias();
+                    await cargarDatosCalendario();
+                    const extra = syncRegistroDiario.insertados > 0 ? ` Además, se sincronizaron ${syncRegistroDiario.insertados} cobertura(s) de sábado de Identificaciones en el Registro Diario.` : '';
+                    mostrarToast('¡Planificación de fin de semana guardada con éxito!' + extra, 'success');
+                } else {
+                    mostrarToast('La planificación se guardó, pero no se pudo sincronizar el Registro Diario: ' + syncRegistroDiario.mensaje, 'warning');
+                }
+            } catch(errorInesperado) {
+                console.error('Error inesperado al guardar cuadrante:', errorInesperado);
+                mostrarToast('Ocurrió un error inesperado al guardar el cuadrante. Revisá la consola para más detalles.', 'error');
+            } finally {
+                if(btn) {
+                    btn.innerText = 'Guardar Cuadrante en Base de Datos';
+                    btn.disabled = false;
+                }
+            }
+        }
+        // Botón Guardar del planificador. Guarda el horario real de cada turno
+        // dentro de la sucursal, con la marca [HORARIO:...].
+        document.getElementById('btnGuardar').addEventListener('click', guardarPlanificadorConHorariosEspeciales);

@@ -260,7 +260,7 @@
                 });
 
                 estadoSelect.addEventListener('change', () => {
-                    if(['FALTA CUBRIR', 'NO CUBIERTO', 'CUBIERTO PARCIAL'].includes(estadoSelect.value)) {
+                    if(esEstadoProblema(estadoSelect.value)) {
                         requiereSelect.value = 'true';
                     }
                     if(estadoSelect.value === 'CUBIERTO' && esFormularioCoberturaNormal()) {
@@ -355,7 +355,6 @@
 
         function aplicarFiltroInicialCoberturasDiarias() {
             if(filtroDiarioInicialAplicado) return;
-            filtroDiarioInicialAplicado = true;
 
             const filtroDesde = document.getElementById('filtroCoberturaDesde');
             const filtroHasta = document.getElementById('filtroCoberturaHasta');
@@ -379,6 +378,10 @@
                 : (fechasDisponibles.includes(ayer) ? ayer : fechasDisponibles[0]);
 
             if(!fechaInicial) return;
+
+            // El latch se marca recién cuando el filtro se aplicó de verdad: si se
+            // marcaba antes, un primer render sin datos lo dejaba desactivado para siempre.
+            filtroDiarioInicialAplicado = true;
 
             filtroDesde.value = fechaInicial;
             filtroHasta.value = fechaInicial;
@@ -583,7 +586,7 @@
             const hasta = document.getElementById('filtroCoberturaHasta')?.value || '';
             const area = document.getElementById('filtroAreaCoberturaDiaria')?.value || 'todas';
             const estado = document.getElementById('filtroEstadoCoberturaDiaria')?.value || 'todos';
-            const estadosPendientes = ['FALTA CUBRIR', 'NO CUBIERTO', 'CUBIERTO PARCIAL'];
+            const estadosPendientes = ESTADOS_PROBLEMA;
 
             return [...coberturasDiariasEnMemoria]
                 .filter(reg => {
@@ -603,7 +606,7 @@
         function actualizarResumenCoberturasDiarias(registrosFiltrados) {
             const total = registrosFiltrados.length;
             const cubiertos = registrosFiltrados.filter(r => r.estado_cobertura === 'CUBIERTO').length;
-            const pendientes = registrosFiltrados.filter(r => ['FALTA CUBRIR', 'NO CUBIERTO', 'CUBIERTO PARCIAL'].includes(r.estado_cobertura)).length;
+            const pendientes = registrosFiltrados.filter(r => esEstadoProblema(r.estado_cobertura)).length;
             const coberturaNormal = registrosFiltrados.filter(r => r.tipo_novedad === 'Cobertura normal del titular' || (r.requiere_cobertura === false && r.estado_cobertura === 'CUBIERTO')).length;
             const textoResumen = `${total} registro(s) filtrado(s): ${cubiertos} cubierto(s), ${pendientes} pendiente(s)/problema(s), ${coberturaNormal} cobertura(s) normal(es).`;
 
@@ -762,7 +765,7 @@
                 datos.agente_cobertura_id = datos.agente_titular_id;
             }
 
-            if(['FALTA CUBRIR', 'NO CUBIERTO', 'CUBIERTO PARCIAL'].includes(datos.estado_cobertura)) {
+            if(esEstadoProblema(datos.estado_cobertura)) {
                 datos.requiere_cobertura = true;
             }
 
@@ -849,10 +852,10 @@
             actualizarSelectoresRegistroDiario({ titular: reg.agente_titular_id || '', cobertura: reg.agente_cobertura_id || '' });
             document.getElementById('cobertura_turno').value = reg.turno || 'Mañana';
             document.getElementById('cobertura_agente_titular').value = reg.agente_titular_id || '';
-            document.getElementById('cobertura_tipo_novedad').value = reg.tipo_novedad || 'Cobertura normal del titular';
+            seleccionarMotivoEnSelect(document.getElementById('cobertura_tipo_novedad'), reg.tipo_novedad || 'Cobertura normal del titular');
             document.getElementById('cobertura_motivo').value = reg.motivo || '';
             document.getElementById('cobertura_requiere').value = reg.requiere_cobertura === false ? 'false' : 'true';
-            document.getElementById('cobertura_estado').value = reg.estado_cobertura || 'FALTA CUBRIR';
+            seleccionarEstadoEnSelect(document.getElementById('cobertura_estado'), reg.estado_cobertura || 'FALTA CUBRIR');
             document.getElementById('cobertura_agente_cobertura').value = reg.agente_cobertura_id || '';
             document.getElementById('cobertura_forma').value = reg.forma_cobertura || '';
             document.getElementById('cobertura_horario_afectado').value = reg.horario_afectado || '';
@@ -991,21 +994,24 @@
                 `• ${item.area} | ${item.agente} | ${item.horario}: ${item.conflictos.join(' ')}`
             );
 
-            return `Vista previa para generar el día normal:\n\n` +
+            return `Vista previa para generar la jornada diaria:\n\n` +
                 `Fecha: ${formatearFechaSimple(fecha)}\n` +
-                `Registros nuevos a crear: ${registrosAInsertar.length}\n` +
-                `Registros ya existentes que se omitirán: ${omitidos}\n` +
-                `Posibles conflictos para revisar: ${conflictosDetectados.length}\n\n` +
+                `Registros nuevos: ${registrosAInsertar.length}\n` +
+                `Ya existentes que se omiten: ${omitidos}\n` +
+                `Para revisar: ${conflictosDetectados.length}\n\n` +
                 `Registros a crear:\n${resumirLineasVistaPrevia(lineasNuevos)}\n` +
-                (lineasConflictos.length ? `\nConflictos detectados:\n${resumirLineasVistaPrevia(lineasConflictos, 6)}\n` : '') +
-                `\nLos registros con conflicto se crearán como FALTA CUBRIR para que puedas revisarlos y corregirlos manualmente.\n\n¿Querés continuar?`;
+                (lineasConflictos.length ? `\nPara revisar:\n${resumirLineasVistaPrevia(lineasConflictos, 6)}\n` : '') +
+                `\nLos registros con conflicto quedarán como FALTA CUBRIR para que los edites desde el historial.\n\n¿Querés continuar?`;
         }
 
         window.generarCoberturaNormalDelDia = async function() {
+            // El panel de jornada diaria tiene su propio selector de fecha; si está
+            // presente, manda sobre el del formulario de registro diario.
+            const fechaJornada = document.getElementById('fechaGenerarJornadaDiaria')?.value || '';
             const fechaInput = document.getElementById('cobertura_fecha');
-            const fecha = fechaInput?.value || obtenerFechaActualISO();
+            const fecha = fechaJornada || fechaInput?.value || obtenerFechaActualISO();
 
-            if(fechaInput && !fechaInput.value) {
+            if(fechaInput && fechaInput.value !== fecha) {
                 fechaInput.value = fecha;
             }
 
@@ -1200,7 +1206,7 @@
         }
 
         function esEstadoProblemaRegistroDiario(estado) {
-            return ['FALTA CUBRIR', 'NO CUBIERTO', 'CUBIERTO PARCIAL'].includes(estado);
+            return esEstadoProblema(estado);
         }
 
         function esCoberturaNormalRegistroDiario(reg) {
@@ -1354,7 +1360,7 @@
             filaKpi2.eachCell((cell, colNumber) => aplicarEstiloCeldaExcel(cell, { bold: colNumber % 2 === 1, fill: colNumber % 2 === 1 ? 'FFD1FAE5' : 'FFFFFFFF' }));
             wsResumen.addRow([]);
 
-            const estados = ['FALTA CUBRIR', 'CUBIERTO', 'CUBIERTO PARCIAL', 'NO REQUIERE COBERTURA', 'NO CUBIERTO', 'CANCELADO'];
+            const estados = ESTADOS_COBERTURA.map(estado => estado.valor);
             const headersResumen = wsResumen.addRow(['Estado', 'Cantidad', 'Porcentaje', 'Registro Civil', 'Identificaciones', 'Otros', 'Normal', 'Novedad/Relevo']);
             agregarFilaCabeceraTablaExcel(headersResumen);
             estados.forEach((estado, index) => {
@@ -1523,3 +1529,56 @@
         // ============================================================
 
         // ============================================================
+
+        function obtenerFechaSugeridaJornadaDiaria() {
+            const filtroUnico = typeof obtenerFechaUnicaFiltroCoberturaDiaria === 'function'
+                ? obtenerFechaUnicaFiltroCoberturaDiaria()
+                : '';
+            return filtroUnico || document.getElementById('cobertura_fecha')?.value || obtenerFechaActualISO();
+        }
+
+        function instalarFlujoJornadaDiaria() {
+            const btnNormal = document.getElementById('btnGenerarCoberturaNormalDia');
+            if(!btnNormal || btnNormal.dataset.jornadaDiaria === '1') return;
+
+            const contenedorBotones = btnNormal.parentElement;
+            const tarjetaAcciones = btnNormal.closest('.bg-white.border');
+            const titulo = tarjetaAcciones?.querySelector('h3');
+            if(titulo) titulo.textContent = 'Registrar jornada diaria';
+
+            const btnAvanzado = Array.from(contenedorBotones?.querySelectorAll('button') || [])
+                .find(btn => btn.getAttribute('onclick') === 'toggleRegistroAvanzadoDiario()');
+            if(btnAvanzado) btnAvanzado.remove();
+
+            const grupoFecha = document.createElement('label');
+            grupoFecha.className = 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-xs font-bold text-emerald-800 shadow-sm';
+            grupoFecha.innerHTML = `
+                <span class="whitespace-nowrap">Fecha</span>
+                <input type="date" id="fechaGenerarJornadaDiaria" class="w-36 border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0">
+            `;
+
+            const fechaJornada = grupoFecha.querySelector('#fechaGenerarJornadaDiaria');
+            fechaJornada.value = obtenerFechaSugeridaJornadaDiaria();
+            fechaJornada.addEventListener('change', () => {
+                const fechaCobertura = document.getElementById('cobertura_fecha');
+                if(fechaCobertura) fechaCobertura.value = fechaJornada.value || obtenerFechaActualISO();
+            });
+
+            btnNormal.dataset.jornadaDiaria = '1';
+            btnNormal.innerText = 'Generar jornada diaria';
+            btnNormal.title = 'Crea los registros habituales de la fecha elegida';
+            btnNormal.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg transition text-xs border border-emerald-700 shadow-sm';
+            contenedorBotones?.insertBefore(grupoFecha, btnNormal);
+
+        }
+        // ============================================================
+        // Los selectores del registro diario salen del catálogo único.
+        // Antes este archivo tenía su propia lista de 13 tipos y su propio
+        // conjunto de estados, distinto del de Pedidos.
+        // ============================================================
+        function instalarSelectoresRegistroDiario() {
+            renderizarOpcionesMotivo(document.getElementById('cobertura_tipo_novedad'), 'diario', 'Cobertura normal del titular');
+            renderizarOpcionesEstado(document.getElementById('cobertura_estado'), 'CUBIERTO');
+        }
+
+        instalarSelectoresRegistroDiario();

@@ -555,3 +555,108 @@
         }
 
         // ============================================================
+        // 3b) HORARIOS DE COBERTURA DEL PLANIFICADOR
+        // ============================================================
+        // Horario base por área y turno. El horario real de cada turno se guarda
+        // junto a la sucursal con la marca [HORARIO:...], que es la que después
+        // leen el calendario, el registro diario y el Excel.
+        const HORARIOS_PLANIFICADOR = {
+            'Call Center': {
+                'Mañana': '07:00 a 12:00',
+                'Tarde': '12:00 a 17:00',
+                'Noche': '17:00 a 22:00'
+            },
+            'Identificaciones': {
+                'Mañana': '07:00 a 12:00',
+                'Tarde': '12:00 a 17:00'
+            }
+        };
+        const HORARIOS_CALL_CENTER_PLANIFICADOR = HORARIOS_PLANIFICADOR['Call Center'];
+        const HORARIOS_IDENTIFICACIONES_PLANIFICADOR = HORARIOS_PLANIFICADOR['Identificaciones'];
+        const MARCA_HORARIO_PLANIFICADOR = '[HORARIO:';
+        const MARCA_HORARIO_IDENTIFICACIONES = MARCA_HORARIO_PLANIFICADOR;
+
+        function normalizarAreaPlanificador(area = '') {
+            return String(area || '').toLowerCase().includes('ident') ? 'Identificaciones' : 'Call Center';
+        }
+
+        function obtenerAreaPlanificadorDesdeFila(row = {}, areaFallback = '') {
+            if(areaFallback) return normalizarAreaPlanificador(areaFallback);
+            return esRegistroIdentificaciones(row) ? 'Identificaciones' : 'Call Center';
+        }
+
+        function formatearHorarioPlanificador(horario = '') {
+            const limpio = String(horario || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if(!limpio) return '';
+            if(/\bhs\.?$/i.test(limpio)) return limpio.replace(/\bhs\.?$/i, 'hs');
+            if(/\bh\.?$/i.test(limpio)) return limpio.replace(/\bh\.?$/i, 'hs');
+            return `${limpio} hs`;
+        }
+
+        function formatearHorarioIdentificacionesPlanificador(horario = '') {
+            return formatearHorarioPlanificador(horario);
+        }
+
+        function obtenerHorarioBasePlanificador(area = '', turno = '') {
+            const areaNormalizada = normalizarAreaPlanificador(area);
+            const horarioBase = HORARIOS_PLANIFICADOR[areaNormalizada]?.[turno] || obtenerHorarioPorTurnoRegistroDiario(turno) || '';
+            return formatearHorarioPlanificador(horarioBase);
+        }
+
+        function obtenerHorarioBaseIdentificaciones(turno = '') {
+            return obtenerHorarioBasePlanificador('Identificaciones', turno);
+        }
+
+        function limpiarSucursalHorarioPlanificador(sucursal = '') {
+            return String(sucursal || '')
+                .replace(/\s*\[HORARIO:[^\]]+\]\s*/g, ' ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
+        function obtenerHorarioPersonalizadoPlanificador(row = {}, areaFallback = '') {
+            const texto = String(row.sucursal || '');
+            const match = texto.match(/\[HORARIO:([^\]]+)\]/);
+            const horarioGuardado = match ? match[1].trim() : '';
+            const area = obtenerAreaPlanificadorDesdeFila(row, areaFallback);
+            return formatearHorarioPlanificador(horarioGuardado || obtenerHorarioBasePlanificador(area, row.turno || ''));
+        }
+
+        function construirSucursalConHorario(sucursalBase = '', horario = '') {
+            const base = limpiarSucursalHorarioPlanificador(sucursalBase) || 'Call Center';
+            const horarioLimpio = formatearHorarioPlanificador(horario);
+            return horarioLimpio ? `${base} [HORARIO:${horarioLimpio}]` : base;
+        }
+
+        function construirSucursalIdentificacionesConHorario(sucursalBase = '', horario = '') {
+            const base = limpiarSucursalHorarioPlanificador(sucursalBase) || 'Dpto de Identificaciones';
+            return construirSucursalConHorario(base, horario);
+        }
+
+        function obtenerSlugAreaHorarioPlanificador(area = '') {
+            return normalizarAreaPlanificador(area) === 'Identificaciones' ? 'ident' : 'cc';
+        }
+
+        // El input de horario del Call Center es compartido por todas las fechas
+        // (una fila por turno); Identificaciones tiene uno por fecha.
+        function obtenerIdHorarioPlanificador(area, fecha, turno) {
+            const slug = obtenerSlugAreaHorarioPlanificador(area);
+            return slug === 'ident' ? `horario_ident_${fecha}_${turno}` : `horario_cc_${turno}`;
+        }
+
+        function obtenerIdHorarioIdentificacion(fecha, turno) {
+            return obtenerIdHorarioPlanificador('Identificaciones', fecha, turno);
+        }
+
+        function leerHorarioPlanificadorDesdePantalla(area, fecha, turno) {
+            const input = document.getElementById(obtenerIdHorarioPlanificador(area, fecha, turno));
+            return formatearHorarioPlanificador(input?.value || obtenerHorarioBasePlanificador(area, turno));
+        }
+
+        function leerHorarioIdentificacionDesdePantalla(fecha, turno) {
+            return leerHorarioPlanificadorDesdePantalla('Identificaciones', fecha, turno);
+        }
+
+        // ============================================================

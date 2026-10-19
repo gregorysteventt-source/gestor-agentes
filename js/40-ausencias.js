@@ -132,7 +132,8 @@
 
             ausenciaEditandoId = id;
             document.getElementById('ausencia_agente').value = ausencia.agente_id || '';
-            document.getElementById('ausencia_tipo').value = ausencia.tipo || 'Permiso';
+            // Tolerante a valores viejos: "Permiso" y "Permiso particular" son el mismo motivo.
+            seleccionarMotivoEnSelect(document.getElementById('ausencia_tipo'), ausencia.tipo || 'Permiso');
             document.getElementById('ausencia_inicio').value = ausencia.fecha_inicio || '';
             document.getElementById('ausencia_fin').value = ausencia.fecha_fin || '';
             document.getElementById('ausencia_notas').value = ausencia.notas || '';
@@ -178,3 +179,10 @@
         }
 
         // ============================================================
+
+        // Las opciones salen del catálogo único de motivos (25-dominio-ausencias.js).
+        // Antes esta lista estaba escrita acá y no coincidía con la de Pedidos ni con
+        // la del Registro diario.
+        function instalarOpcionesAusencia() {
+            renderizarOpcionesMotivo(document.getElementById('ausencia_tipo'), 'ausencias');
+        }

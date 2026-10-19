@@ -10,6 +10,7 @@ css/styles.css
 js/00-core-config-state-utils.js
 js/10-auth-navegacion.js
 js/20-datos-fechas.js
+js/25-dominio-ausencias.js
 js/30-planificador.js
 js/40-ausencias.js
 js/50-novedades.js
@@ -28,6 +29,19 @@ sql/guardar_cuadrante_seguro_v40.sql
 - No se convirtió todavía a `type="module"`.
 - No se cambiaron funciones, tablas, Supabase ni RLS.
 - Se mantuvieron los `onclick` para evitar cambios grandes en la lógica.
+
+## Vocabulario único de ausencias y pedidos
+
+`js/25-dominio-ausencias.js` es la única definición de los motivos (`Vacaciones`, `Día libre`,
+`Permiso`, `Reposo`, `Consulta médica`, `Cumpleaños`, `Ausencia imprevista`, `Entrada más tarde`,
+`Salida más temprano`, `Cambio de turno`, `Cobertura normal`, `Sábado planificado`, `Otro`) y de los
+estados de cobertura (6 valores).
+
+Antes cada pantalla tenía su propia lista y no coincidían: el mismo hecho se llamaba `Día Libre` en
+Ausencias y `Día libre por horas extras` en Pedidos y en el Registro diario, y había tres taxonomías
+de estado (4, 6 y 9 valores). Ahora las tres pantallas pintan sus selectores desde ese catálogo y
+cualquier variante histórica cae en el mismo motivo canónico, sin cambiar los valores guardados en la
+base.
 
 ## Orden de carga
 

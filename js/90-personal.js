@@ -272,8 +272,7 @@ Esto lo ocultará de los selectores de turnos y ausencias, pero mantendrá de fo
                         .update({ 
                             nombre_corto: nombreCorto,
                             modalidad: modalidad,
-                            sucursal: sucursal,
-                            cedula: null
+                            sucursal: sucursal
                         })
                         .eq('id', agenteEditandoId);
                 } else {
