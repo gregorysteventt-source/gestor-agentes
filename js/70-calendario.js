@@ -438,7 +438,75 @@
         }
 
 
+        // ---- Ventanita al pasar el cursor por un día con datos ----
+        // En la grilla solo entra el título; al pasar el mouse se muestra el título
+        // completo y el detalle (el texto de la nota, el período de la ausencia, etc.).
+        // Se usa un único elemento flotante posicionado con el cursor, así no lo
+        // recorta ninguna celda.
+
+        function posicionarTooltipCalendario(tooltip, evento) {
+            const margen = 12;
+            const ancho = tooltip.offsetWidth || 220;
+            const alto = tooltip.offsetHeight || 60;
+
+            let x = evento.clientX + 14;
+            let y = evento.clientY + 16;
+
+            if (x + ancho > window.innerWidth - margen) x = window.innerWidth - ancho - margen;
+            if (y + alto > window.innerHeight - margen) y = evento.clientY - alto - 10;
+            if (x < margen) x = margen;
+            if (y < margen) y = margen;
+
+            tooltip.style.left = `${x}px`;
+            tooltip.style.top = `${y}px`;
+        }
+
+        function setupTooltipCalendario() {
+            if (window.__tooltipCalendarioListo) return;
+
+            const grid = document.getElementById('calendarioGrid');
+            if (!grid) return;
+
+            let tooltip = document.getElementById('tooltipCalendario');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'tooltipCalendario';
+                tooltip.className = 'pointer-events-none fixed z-[999] hidden max-w-[280px] rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-2 text-[11px] leading-snug text-white shadow-xl';
+                tooltip.style.whiteSpace = 'pre-line';
+                document.body.appendChild(tooltip);
+            }
+
+            const ocultar = () => tooltip.classList.add('hidden');
+
+            grid.addEventListener('mouseover', (evento) => {
+                const item = evento.target.closest('[data-tooltip]');
+                if (!item) return;
+
+                const texto = item.dataset.tooltip || '';
+                if (!texto.trim()) return;
+
+                tooltip.textContent = texto;
+                tooltip.classList.remove('hidden');
+                posicionarTooltipCalendario(tooltip, evento);
+            });
+
+            grid.addEventListener('mousemove', (evento) => {
+                if (tooltip.classList.contains('hidden')) return;
+                posicionarTooltipCalendario(tooltip, evento);
+            });
+
+            grid.addEventListener('mouseout', (evento) => {
+                if (evento.target.closest('[data-tooltip]')) ocultar();
+            });
+
+            grid.addEventListener('mouseleave', ocultar);
+            window.addEventListener('scroll', ocultar, { passive: true });
+
+            window.__tooltipCalendarioListo = true;
+        }
+
         function renderizarCalendarioOperativo() {
+            setupTooltipCalendario();
             const grid = document.getElementById('calendarioGrid');
             const titulo = document.getElementById('calendarioTituloMes');
             const resumen = document.getElementById('calendarioResumenMes');
@@ -472,7 +540,11 @@
                             ${esHoy ? '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-violet-600 text-white">Hoy</span>' : ''}
                         </div>
                         <div class="space-y-1">
-                            ${eventosVisibles.map(ev => `<div class="border ${ev.clase} rounded px-2 py-1 text-[11px] font-bold truncate">${escaparHTML(ev.etiqueta)}</div>`).join('')}
+                            ${eventosVisibles.map(ev => {
+                                // El texto de la ventanita: título completo + detalle.
+                                const detalleTooltip = [ev.titulo || ev.etiqueta, ev.detalle].filter(Boolean).join('\n');
+                                return `<div data-tooltip="${escaparHTML(detalleTooltip)}" class="border ${ev.clase} rounded px-2 py-1 text-[11px] font-bold truncate">${escaparHTML(ev.etiqueta)}</div>`;
+                            }).join('')}
                             ${extras > 0 ? `<div class="text-[11px] font-bold text-slate-400 px-1">+${extras} mas</div>` : ''}
                         </div>
                     </button>
