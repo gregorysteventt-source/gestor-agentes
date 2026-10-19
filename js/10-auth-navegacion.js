@@ -196,7 +196,7 @@
         // Antes esto era un parche invisible al final de 80-exportaciones-alertas.js:
         // reasignaba activarPestaña y ocultaba los botones inyectando CSS. Ahora es
         // una lista explícita. Para recuperar Novedades y Diario, dejala vacía.
-        const PESTANAS_OCULTAS = [];
+        const PESTANAS_OCULTAS = ['tab-novedades', 'tab-diario'];
 
         // Sistema dinámico de pestañas.
         function activarPestaña(tabId) {
